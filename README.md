@@ -10,25 +10,6 @@
 [![Status](https://img.shields.io/badge/status-active-success.svg)]()
 
 </div>
-
----
-
-## 📑 Table of Contents
-
-- [About](#about)
-- [Features](#features)
-- [Algorithms](#algorithms)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Project Structure](#project-structure)
-- [Scenarios](#scenarios)
-- [Color Legend](#color-legend)
-- [Technical Details](#technical-details)
-- [Authors](#authors)
-- [Acknowledgments](#acknowledgments)
-
----
-
 ## 🎯 About
 
 This project implements a **real-time visualization tool** for comparing six fundamental uninformed search algorithms in a grid-based pathfinding environment. Built with Python and Matplotlib, it provides an interactive GUI to observe how different algorithms explore the search space and find paths from a start point to a target.
@@ -175,36 +156,10 @@ AI-Pathfinding-Search-Visualizer/
 ├── requirements.txt        # Python dependencies
 ├── README.md              # Project documentation (this file)
 ├── .gitignore             # Git ignore rules
-│
-└── Screenshots/           # (Create this for your report)
-    ├── BFS_Scenario1.png
-    ├── DFS_Scenario2.png
-    └── ...
+
+
+
 ```
-
----
-
-## 🗺️ Scenarios
-
-### Scenario 1: Vertical Wall Obstacle
-- **Difficulty:** Moderate
-- **Description:** Single vertical wall dividing the grid
-- **Purpose:** Tests algorithm efficiency with simple obstacles
-- **Best Algorithm:** BFS (finds shortest path around wall)
-
-### Scenario 2: Complex Maze
-- **Difficulty:** Hard (Worst Case)
-- **Description:** Multiple walls creating a maze structure
-- **Purpose:** Tests algorithm performance under challenging conditions
-- **Best Algorithm:** Bidirectional (searches from both ends)
-
-### Scenario 3: Open Space
-- **Difficulty:** Easy (Best Case)
-- **Description:** No obstacles, direct path available
-- **Purpose:** Baseline performance testing
-- **Best Algorithm:** All perform well; BFS/Bidirectional fastest
-
----
 
 ## 🎨 Color Legend
 
@@ -267,25 +222,6 @@ The algorithms expand neighbors in this specific order:
 - Matplotlib library for powerful Python plotting capabilities
 - Academic references from AI textbooks (Russell & Norvig, etc.)
 
----
-
-## 📊 Performance Comparison
-
-### Expected Results Across Scenarios
-
-| Algorithm | Scenario 1 | Scenario 2 | Scenario 3 | Optimal Path? |
-|-----------|------------|------------|------------|---------------|
-| BFS | ~46 nodes | ~78 nodes | ~10 nodes | ✅ Yes |
-| DFS | ~74 nodes | ~89 nodes | ~25 nodes | ❌ No |
-| UCS | ~52 nodes | ~81 nodes | ~12 nodes | ✅ Yes |
-| DLS | ~35 nodes | May fail | ~15 nodes | ❌ Sometimes |
-| IDDFS | ~68 nodes | ~92 nodes | ~18 nodes | ✅ Yes |
-| Bidirectional | ~28 nodes | ~45 nodes | ~8 nodes | ✅ Yes |
-
-*Note: Actual values may vary based on grid configuration*
-
----
-
 ## 🤝 Contributing
 
 This is an academic project. For improvements or bug reports:
@@ -293,7 +229,6 @@ This is an academic project. For improvements or bug reports:
 2. Create a feature branch
 3. Commit your changes
 4. Submit a pull request
-
 ---
 
 ## 📄 License
