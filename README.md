@@ -18,7 +18,6 @@
 - [About](#about)
 - [Features](#features)
 - [Algorithms](#algorithms)
-- [Demo](#demo)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Project Structure](#project-structure)
@@ -88,29 +87,6 @@ This project implements a **real-time visualization tool** for comparing six fun
 - **Characteristics:** Meets in the middle, significantly faster
 - **Best For:** Known start and goal positions
 - **Complexity:** O(b^(d/2))
-
----
-
-## 🎬 Demo
-
-### Visual Output Example
-
-```
-┌─────────────────────────────────────────────┐
-│  Algorithm: BFS                             │
-│  Nodes Explored: 46                         │
-│  Path Length: 7                             │
-│  Status: ✓ Path Found!                      │
-└─────────────────────────────────────────────┘
-```
-
-**Color Coding During Execution:**
-- 🟦 **Blue (S)** = Start Point
-- 🟩 **Green (T)** = Target Point
-- 🟥 **Red (-1)** = Walls/Obstacles
-- 🟨 **Yellow** = Frontier (nodes queued for exploration)
-- 🔵 **Light Blue** = Explored (already visited)
-- 🟢 **Green Path** = Final solution route
 
 ---
 
@@ -280,9 +256,7 @@ The algorithms expand neighbors in this specific order:
 - **Muhammad Alyan Riaz** - 24F-0783
   - 🔗 GitHub: [@MalikAlyan](https://github.com/MalikAlyan)
 
-**Course:** AI 2002 – Artificial Intelligence  
-**Semester:** Spring 2026  
-**Institution:** [Your University Name]
+**Course:** AI 2002 – Artificial Intelligence
 
 ---
 
@@ -331,7 +305,7 @@ This project is developed for educational purposes as part of university coursew
 ## 📧 Contact
 
 For questions or feedback:
-- **Email:** [Your University Email]
+- **Email:** f240005@cfd.nu.edu.pk
 - **GitHub Issues:** [Project Issues Page](https://github.com/MUHAMMAD-FAHAD-AMJAD/AI-Pathfinding-Search-Visualizer/issues)
 
 ---
