@@ -284,7 +284,62 @@ def astar(grid, start, goal, heuristic_fn, move_weight, metrics):
     yield came_from, []
 
 
+
+# ============================================================
+# GREEDY BEST FIRST SEARCH
+# ============================================================
+def gbfs(grid, start, goal, heuristic_fn, move_weight, metrics):
+    """Generator: yields (came_from, path|None) at each step."""
+    counter    = 0
+    open_heap  = []
+    came_from  = {}
+    visited    = set()
+    in_frontier = set()
+
+    def push(node):
+        nonlocal counter
+        h_val  = heuristic_fn(node, goal)
+        node.h = h_val
+        node.f = h_val
+        heapq.heappush(open_heap, (h_val, counter, node))
+        counter += 1
+        in_frontier.add(node)
+
+    push(start)
+
+    while open_heap:
+        _, _, current = heapq.heappop(open_heap)
+        in_frontier.discard(current)
+        if current in visited:
+            yield came_from, None
+            continue
+
+        visited.add(current)
+        metrics["nodes_visited"] += 1
+
+        if current is goal:
+            path = _reconstruct_path(came_from, start, goal)
+            metrics["path_cost"] = (len(path) - 1) * move_weight
+            yield came_from, path
+            return
+
+        if current is not start and current is not goal:
+            current.make_visited()
+
+        for nb in current.neighbors:
+            if nb not in visited and nb not in in_frontier:
+                came_from[nb] = current
+                push(nb)
+                if nb is not goal:
+                    nb.make_frontier()
+
+        yield came_from, None
+
+    yield came_from, []
+
+
 if __name__ == "__main__":
-    print("Stage 3 OK")
+    print("Stage 4 OK")
+
 
 
