@@ -112,5 +112,95 @@ class Node:
                           cell_size, cell_size))
 
 
+
+# ============================================================
+# GRID CLASS
+# ============================================================
+class Grid:
+    def __init__(self, rows, cols):
+        self.rows      = rows
+        self.cols      = cols
+        self.cell_size = min(GRID_AREA_W // cols, GRID_AREA_H // rows)
+        self.nodes     = [[Node(r, c, rows, cols) for c in range(cols)]
+                          for r in range(rows)]
+        self.start = self.nodes[0][0]
+        self.goal  = self.nodes[rows - 1][cols - 1]
+        self.start.make_start()
+        self.goal.make_goal()
+
+    def reset_path(self):
+        for row in self.nodes:
+            for node in row:
+                if node.is_visited() or node.is_frontier() or node.is_path():
+                    node.reset()
+        self.start.make_start()
+        self.goal.make_goal()
+
+    def clear(self):
+        for row in self.nodes:
+            for node in row:
+                node.reset()
+                node.g = float("inf")
+                node.h = 0.0
+                node.f = 0.0
+                node.parent   = None
+                node.neighbors = []
+        self.start.make_start()
+        self.goal.make_goal()
+
+    def generate_maze(self, density):
+        for _ in range(50):
+            self.clear()
+            for r in range(self.rows):
+                for c in range(self.cols):
+                    n = self.nodes[r][c]
+                    if n is self.start or n is self.goal:
+                        continue
+                    if random.random() < density / 100:
+                        n.make_wall()
+            if self._path_exists():
+                return
+        self.clear()
+
+    def _path_exists(self):
+        visited = {self.start}
+        queue   = [self.start]
+        while queue:
+            cur = queue.pop(0)
+            if cur is self.goal:
+                return True
+            for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+                r, c = cur.row + dr, cur.col + dc
+                if 0 <= r < self.rows and 0 <= c < self.cols:
+                    nb = self.nodes[r][c]
+                    if nb not in visited and not nb.is_wall():
+                        visited.add(nb)
+                        queue.append(nb)
+        return False
+
+    def update_all_neighbors(self):
+        for row in self.nodes:
+            for node in row:
+                node.update_neighbors(self.nodes)
+
+    def draw(self, surface):
+        cs = self.cell_size
+        for row in self.nodes:
+            for node in row:
+                node.draw(surface, cs)
+        for r in range(self.rows + 1):
+            pygame.draw.line(surface, GRID_LINE, (0, r*cs), (self.cols*cs, r*cs))
+        for c in range(self.cols + 1):
+            pygame.draw.line(surface, GRID_LINE, (c*cs, 0), (c*cs, self.rows*cs))
+
+    def get_node_at_pixel(self, x, y):
+        cs = self.cell_size
+        col, row = x // cs, y // cs
+        if 0 <= row < self.rows and 0 <= col < self.cols:
+            return self.nodes[row][col]
+        return None
+
+
 if __name__ == "__main__":
-    print("Stage 1 OK")
+    print("Stage 2 OK")
+
