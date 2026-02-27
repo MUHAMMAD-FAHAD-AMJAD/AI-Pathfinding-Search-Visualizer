@@ -26,39 +26,36 @@ pygame.font.init()
 # ============================================================
 # CONSTANTS AND COLORS
 # ============================================================
-WINDOW_WIDTH   = 1100
-WINDOW_HEIGHT  = 700
-GRID_AREA_W    = 700
-GRID_AREA_H    = 700
-PANEL_X        = 700
-PANEL_W        = 400
-PANEL_H        = 700
+INIT_W       = 1300
+INIT_H       = 800
+PANEL_W      = 420
+PANEL_H      = 800
 
 # --- Color Palette ---
 WHITE        = (255, 255, 255)
-BLACK        = (0,   0,   0  )
-DARK_GREEN   = (0,   110, 0  )
-RED          = (220, 20,  60 )
-YELLOW       = (255, 215, 0  )
-LIGHT_BLUE   = (100, 180, 230)
-BRIGHT_GREEN = (0,   210, 0  )
-ORANGE       = (255, 140, 0  )
-GRAY         = (150, 150, 150)
+BLACK        = (15,  15,  15 )   # walls — slightly off-black
+DARK_GREEN   = (0,   180, 0  )   # start node — bright and visible
+RED          = (220, 20,  60 )   # goal node
+YELLOW       = (255, 200, 0  )   # frontier
+LIGHT_BLUE   = (70,  160, 220)   # visited
+BRIGHT_GREEN = (0,   220, 80 )   # final path
+ORANGE       = (255, 140, 0  )   # agent
+GRAY         = (140, 140, 140)
 LIGHT_GRAY   = (210, 210, 210)
 DARK_GRAY    = (55,  55,  55 )
-PANEL_BG     = (26,  26,  38 )
-PANEL_BORDER = (50,  50,  80 )
-BTN_COLOR    = (52,  52,  82 )
-BTN_HOVER    = (72,  72,  130)
-BTN_ACTIVE   = (60,  120, 210)
+PANEL_BG     = (22,  22,  35 )
+PANEL_BORDER = (80,  80,  120)
+BTN_COLOR    = (52,  52,  85 )
+BTN_HOVER    = (75,  75,  130)
+BTN_ACTIVE   = (50,  120, 220)
 BTN_ON       = (40,  170, 70 )
-BTN_OFF      = (170, 55,  55 )
+BTN_OFF      = (52,  52,  85 )
 TEXT_COLOR   = (220, 220, 220)
-TITLE_COLOR  = (160, 190, 255)
-METRIC_BG    = (16,  16,  26 )
+TITLE_COLOR  = (140, 180, 255)
+METRIC_BG    = (12,  12,  22 )
 METRIC_VAL   = (80,  220, 140)
 FLASH_RED    = (255, 40,  40 )
-GRID_LINE    = (180, 180, 180)
+GRID_LINE    = (200, 200, 200)
 INPUT_BG     = (38,  38,  60 )
 INPUT_BORDER = (100, 100, 160)
 INPUT_ACTIVE = (80,  140, 220)
@@ -126,6 +123,14 @@ class Node:
         x = self.col * cell_size
         y = self.row * cell_size
         pygame.draw.rect(surface, self.color, (x, y, cell_size, cell_size))
+        # Draw a filled circle marker for start and goal so they are unmissable
+        if self.color == DARK_GREEN or self.color == RED:
+            cx = x + cell_size // 2
+            cy = y + cell_size // 2
+            r  = max(3, cell_size // 2 - 3)
+            inner = (180, 255, 180) if self.color == DARK_GREEN else (255, 160, 160)
+            pygame.draw.circle(surface, inner,           (cx, cy), r)
+            pygame.draw.circle(surface, self.color,       (cx, cy), r, width=max(2, r//3))
 
 
 # ============================================================
@@ -134,10 +139,11 @@ class Node:
 class Grid:
     """Manages the 2-D array of Nodes and all grid-level operations."""
 
-    def __init__(self, rows: int, cols: int):
+    def __init__(self, rows: int, cols: int,
+                 area_w: int = 880, area_h: int = 800):
         self.rows      = rows
         self.cols      = cols
-        self.cell_size = min(GRID_AREA_W // cols, GRID_AREA_H // rows)
+        self.cell_size = min(area_w // cols, area_h // rows)
         self.nodes: list[list[Node]] = [
             [Node(r, c, rows, cols) for c in range(cols)]
             for r in range(rows)
@@ -224,6 +230,12 @@ class Grid:
             pygame.draw.line(surface, GRID_LINE, (0, r * cs), (total_w, r * cs))
         for c in range(self.cols + 1):
             pygame.draw.line(surface, GRID_LINE, (c * cs, 0), (c * cs, total_h))
+
+        # Guarantee start/goal are always visible on top of grid lines
+        self.start.make_start()
+        self.goal.make_goal()
+        self.start.draw(surface, cs)
+        self.goal.draw(surface, cs)
 
     # --- Convert pixel → node ---
     def get_node_at_pixel(self, x: int, y: int) -> "Node | None":
@@ -511,8 +523,8 @@ class Button:
         else:
             col = self.color
 
-        pygame.draw.rect(surface, col, self.rect, border_radius=6)
-        pygame.draw.rect(surface, PANEL_BORDER, self.rect, width=1, border_radius=6)
+        pygame.draw.rect(surface, col, self.rect, border_radius=8)
+        pygame.draw.rect(surface, PANEL_BORDER, self.rect, width=1, border_radius=8)
 
         txt = self.font.render(self.label, True, TEXT_COLOR)
         tr  = txt.get_rect(center=self.rect.center)
@@ -717,73 +729,88 @@ class Panel:
 
     def draw(
         self,
-        surface:       pygame.Surface,
-        metrics:       dict,
-        dynamic_on:    bool,
-        message:       str,
+        surface:    pygame.Surface,
+        metrics:    dict,
+        dynamic_on: bool,
+        message:    str,
     ) -> None:
         self.surf.fill(PANEL_BG)
+        px = 15
+        SEP_COLOR = (60, 60, 95)
 
-        px = 20
+        def sep(y: int) -> None:
+            pygame.draw.line(self.surf, SEP_COLOR,
+                             (px, y), (PANEL_W - px, y))
 
-        # Title
-        t1 = FONT_XL.render("Dynamic Pathfinding", True, TITLE_COLOR)
+        # ── Title ─────────────────────────────────────────────────
+        t1 = FONT_XL.render("Dynamic Pathfinding Agent", True, TITLE_COLOR)
         t2 = FONT_SM.render("Muhammad Fahad Amjad  |  24F-0005", True, GRAY)
-        self.surf.blit(t1, (px, self.title_y - 4))
-        self.surf.blit(t2, (px, self.title_y + 22))
+        self.surf.blit(t1, (px, self.title_y))
+        self.surf.blit(t2, (px, self.subtitle_y))
+        sep(self.sep0_y)
 
-        # Section labels
-        lbl_a = FONT_SM.render("Algorithm:", True, GRAY)
+        # ── Algorithm ─────────────────────────────────────────────
+        lbl_a = FONT_MD.render("Algorithm:", True, GRAY)
         self.surf.blit(lbl_a, (px, self.algo_label_y))
-        lbl_h = FONT_SM.render("Heuristic:", True, GRAY)
+        self.btn_gbfs.draw(self.surf)
+        self.btn_astar.draw(self.surf)
+        sep(self.sep1_y)
+
+        # ── Heuristic ─────────────────────────────────────────────
+        lbl_h = FONT_MD.render("Heuristic:", True, GRAY)
         self.surf.blit(lbl_h, (px, self.heu_label_y))
-        lbl_s = FONT_SM.render("Speed:", True, GRAY)
+        self.btn_manhattan.draw(self.surf)
+        self.btn_euclidean.draw(self.surf)
+        sep(self.sep2_y)
+
+        # ── Inputs ────────────────────────────────────────────────
+        self.input_weight.draw(self.surf)
+        self.input_density.draw(self.surf)
+        sep(self.sep3_y)
+
+        # ── Speed ─────────────────────────────────────────────────
+        lbl_s = FONT_MD.render("Speed:", True, GRAY)
         self.surf.blit(lbl_s, (px, self.speed_label_y))
-        lbl_g = FONT_SM.render("Grid Size (rows × cols):", True, GRAY)
-        self.surf.blit(lbl_g, (px, self.grid_label_y))
-
-        # Dynamic button label
-        self.btn_dynamic.label = f"DYNAMIC: {'ON' if dynamic_on else 'OFF'}"
-        self.btn_dynamic.is_active = dynamic_on
-
-        # Draw all controls
-        for btn in [
-            self.btn_gbfs, self.btn_astar,
-            self.btn_manhattan, self.btn_euclidean,
-            self.btn_generate, self.btn_run,
-            self.btn_step, self.btn_reset,
-            self.btn_clear, self.btn_dynamic,
-            self.btn_resize,
-        ]:
-            btn.draw(self.surf)
-
-        for inp in [self.input_weight, self.input_density,
-                    self.input_rows, self.input_cols]:
-            inp.draw(self.surf)
-
         self.speed_slider.draw(self.surf, "")
+        sep(self.sep4_y)
 
-        # Separator lines
-        pygame.draw.line(self.surf, DARK_GRAY,
-                         (px, self.sep_y - 8), (PANEL_W - px, self.sep_y - 8))
-        pygame.draw.line(self.surf, DARK_GRAY,
-                         (px, self.sep2_y - 8), (PANEL_W - px, self.sep2_y - 8))
+        # ── Action buttons ────────────────────────────────────────
+        self.btn_dynamic.label     = f"DYNAMIC: {'ON' if dynamic_on else 'OFF'}"
+        self.btn_dynamic.is_active = dynamic_on
+        for btn in [self.btn_generate, self.btn_run,
+                    self.btn_step, self.btn_reset,
+                    self.btn_clear, self.btn_dynamic]:
+            btn.draw(self.surf)
+        sep(self.sep5_y)
 
-        # --- Metrics Dashboard ---
-        my = self.metrics_y
+        # ── Grid size ─────────────────────────────────────────────
+        lbl_g = FONT_MD.render("Grid Size (rows x cols):", True, GRAY)
+        self.surf.blit(lbl_g, (px, self.grid_label_y))
+        self.input_rows.draw(self.surf)
+        self.input_cols.draw(self.surf)
+        self.btn_resize.draw(self.surf)
+        sep(self.sep6_y)
+
+        # ── Metrics Dashboard ─────────────────────────────────────
+        mbox_x = px - 4
+        mbox_w = PANEL_W - px * 2 + 8
+        mbox_h = self.status_y - self.metrics_box_y - 4
         pygame.draw.rect(self.surf, METRIC_BG,
-                         (px - 4, my - 8, PANEL_W - px * 2 + 8, 118), border_radius=6)
-        pygame.draw.rect(self.surf, DARK_GRAY,
-                         (px - 4, my - 8, PANEL_W - px * 2 + 8, 118), width=1, border_radius=6)
+                         (mbox_x, self.metrics_box_y, mbox_w, mbox_h),
+                         border_radius=8)
+        pygame.draw.rect(self.surf, (60, 60, 100),
+                         (mbox_x, self.metrics_box_y, mbox_w, mbox_h),
+                         width=1, border_radius=8)
 
-        dash_title = FONT_LG.render("Metrics Dashboard", True, TITLE_COLOR)
-        self.surf.blit(dash_title, (px, my))
-        my += 26
+        my = self.metrics_box_y + 10
+        dash_t = FONT_LG.render("Metrics Dashboard", True, TITLE_COLOR)
+        self.surf.blit(dash_t, (px, my))
+        my += 28
 
         for label, key, unit in [
             ("Nodes Visited", "nodes_visited", ""),
             ("Path Cost",     "path_cost",     ""),
-            ("Time (ms)",     "time_ms",        "ms"),
+            ("Time (ms)",     "time_ms",       "ms"),
         ]:
             row_lbl = FONT_MD.render(f"{label}:", True, GRAY)
             row_val = FONT_MONO.render(
@@ -791,14 +818,15 @@ class Panel:
                 True, METRIC_VAL
             )
             self.surf.blit(row_lbl, (px, my))
-            self.surf.blit(row_val, (PANEL_W - px - row_val.get_width(), my))
-            my += 24
+            self.surf.blit(row_val, (PANEL_W - px - row_val.get_width() - 4, my))
+            my += 26
 
-        # Status message
+        # ── Status message ────────────────────────────────────────
         if message:
             color = (255, 100, 100) if "No path" in message else (100, 220, 100)
-            msg_surf = FONT_MD.render(message, True, color)
-            self.surf.blit(msg_surf, (px, my + 8))
+            # Truncate if too long
+            msg_surf = FONT_MD.render(message[:52], True, color)
+            self.surf.blit(msg_surf, (px, self.status_y))
 
         # Blit panel onto main surface
         surface.blit(self.surf, (self.x, 0))
@@ -814,6 +842,7 @@ class Panel:
             self.btn_resize,
         ]:
             btn.update_hover(rel)
+        self.speed_slider.update_hover(rel)
 
     def handle_event(self, event: pygame.event.Event) -> str | None:
         """
@@ -882,36 +911,39 @@ class Panel:
 def startup_dialog(screen: pygame.Surface) -> tuple[int, int]:
     """Simple startup dialog to set grid dimensions."""
     clock  = pygame.time.Clock()
-    font_t = pygame.font.SysFont("segoeui", 28, bold=True)
+    font_t = pygame.font.SysFont("segoeui", 30, bold=True)
     font_s = pygame.font.SysFont("segoeui", 16)
 
-    inp_rows = TextInput((380, 280, 80, 34), "20", "Rows", numeric=True)
-    inp_cols = TextInput((510, 280, 80, 34), "20", "Cols", numeric=True)
+    cw = screen.get_width()
 
-    btn_start = pygame.Rect(390, 340, 200, 44)
+    inp_rows = TextInput((cw // 2 - 100, 290, 85, 36), "20", "Rows", numeric=True)
+    inp_cols = TextInput((cw // 2 + 20,  290, 85, 36), "20", "Cols", numeric=True)
+    btn_start = pygame.Rect(cw // 2 - 110, 355, 220, 48)
 
-    running = True
-    while running:
-        screen.fill((20, 20, 32))
+    while True:
+        screen.fill((18, 18, 30))
+        cw = screen.get_width()
 
-        # Title
         t = font_t.render("Dynamic Pathfinding Agent", True, TITLE_COLOR)
-        screen.blit(t, t.get_rect(center=(WINDOW_WIDTH // 2, 160)))
+        screen.blit(t, t.get_rect(center=(cw // 2, 160)))
 
-        sub = font_s.render("AI 2002 – Assignment 2  |  Muhammad Fahad Amjad  |  24F-0005",
-                            True, GRAY)
-        screen.blit(sub, sub.get_rect(center=(WINDOW_WIDTH // 2, 198)))
+        sub = font_s.render(
+            "AI 2002 – Assignment 2  |  Muhammad Fahad Amjad  |  24F-0005",
+            True, GRAY)
+        screen.blit(sub, sub.get_rect(center=(cw // 2, 200)))
 
-        inst = font_s.render("Set grid dimensions then click START", True, LIGHT_GRAY)
-        screen.blit(inst, inst.get_rect(center=(WINDOW_WIDTH // 2, 240)))
+        inst = font_s.render(
+            "Set grid dimensions then click START  (default 20x20)",
+            True, LIGHT_GRAY)
+        screen.blit(inst, inst.get_rect(center=(cw // 2, 250)))
 
         inp_rows.draw(screen)
         inp_cols.draw(screen)
 
         mx, my = pygame.mouse.get_pos()
         hov = btn_start.collidepoint(mx, my)
-        pygame.draw.rect(screen, BTN_ACTIVE if hov else BTN_COLOR, btn_start, border_radius=8)
-        pygame.draw.rect(screen, PANEL_BORDER, btn_start, width=1, border_radius=8)
+        pygame.draw.rect(screen, BTN_ACTIVE if hov else BTN_COLOR, btn_start, border_radius=10)
+        pygame.draw.rect(screen, PANEL_BORDER, btn_start, width=1, border_radius=10)
         st = font_t.render("START", True, WHITE)
         screen.blit(st, st.get_rect(center=btn_start.center))
 
@@ -930,14 +962,14 @@ def startup_dialog(screen: pygame.Surface) -> tuple[int, int]:
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if btn_start.collidepoint(event.pos):
-                    rows = max(5, min(50, inp_rows.get_int(20)))
-                    cols = max(5, min(50, inp_cols.get_int(20)))
-                    return rows, cols
+                    r = max(5, min(50, inp_rows.get_int(20)))
+                    c = max(5, min(50, inp_cols.get_int(20)))
+                    return r, c
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                rows = max(5, min(50, inp_rows.get_int(20)))
-                cols = max(5, min(50, inp_cols.get_int(20)))
-                return rows, cols
+                r = max(5, min(50, inp_rows.get_int(20)))
+                c = max(5, min(50, inp_cols.get_int(20)))
+                return r, c
 
         clock.tick(60)
 
@@ -955,43 +987,49 @@ def _fresh_metrics() -> dict:
 # MAIN LOOP
 # ============================================================
 def main() -> None:
-    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+    screen = pygame.display.set_mode((INIT_W, INIT_H), pygame.RESIZABLE)
     pygame.display.set_caption(
-        "Dynamic Pathfinding Agent – Muhammad Fahad Amjad (24F-0005)"
+        "Dynamic Pathfinding Agent | Muhammad Fahad Amjad | 24F-0005"
     )
     clock = pygame.time.Clock()
 
     # --- Startup ---
     rows, cols = startup_dialog(screen)
 
+    # --- Compute dynamic grid area ---
+    def _grid_area() -> tuple[int, int]:
+        """Return (grid_area_w, grid_area_h) based on current screen size."""
+        return screen.get_width() - PANEL_W, screen.get_height()
+
+    grid_area_w, grid_area_h = _grid_area()
+
     # --- Initial state ---
-    grid         = Grid(rows, cols)
+    grid = Grid(rows, cols, grid_area_w, grid_area_h)
     grid.generate_maze(30)
 
-    panel        = Panel(GRID_AREA_W)
+    panel = Panel(grid_area_w)
 
     algo_choice  = "astar"      # "astar" | "gbfs"
     heuristic_fn = heuristic_manhattan
     move_weight  = 1.0
     dynamic_on   = False
 
-    metrics      = _fresh_metrics()
-    message      = ""
+    metrics = _fresh_metrics()
+    message = ""
 
     # Algorithm generator state
-    algo_gen          = None
-    came_from: dict   = {}
-    path: list[Node]  = []
+    algo_gen         = None
+    came_from: dict  = {}
+    path: list[Node] = []
 
     # Animation state
-    path_anim_idx  = 0          # index into path while drawing green cells
-    agent_idx      = 0          # index into path where agent currently is
+    path_anim_idx       = 0
+    agent_idx           = 0
     agent_node: Node | None = None
-    replan_needed  = False
 
     # Timing
-    last_step_time  = 0
-    start_time_ms   = 0
+    last_step_time = 0
+    start_time_ms  = 0
 
     # Dynamic obstacle manager
     dyn_mgr = DynamicObstacleManager(grid)
@@ -999,7 +1037,7 @@ def main() -> None:
     # States: idle | running | stepping | animating | moving
     state = "idle"
 
-    def get_heuristic() -> callable:
+    def get_heuristic():
         if panel.btn_euclidean.is_active:
             return heuristic_euclidean
         return heuristic_manhattan
@@ -1020,6 +1058,8 @@ def main() -> None:
 
         grid.reset_path()
         grid.update_all_neighbors()
+        grid.start.make_start()  # ensure start/goal survive reset
+        grid.goal.make_goal()
 
         heuristic_fn = get_heuristic()
         move_weight  = get_move_weight()
@@ -1115,6 +1155,14 @@ def main() -> None:
     while running:
         now_ms = time.time() * 1000
 
+        # Keep panel.x and grid cell_size synced with window size
+        grid_area_w, grid_area_h = _grid_area()
+        panel.x = grid_area_w
+        grid.cell_size = min(
+            max(1, grid_area_w // grid.cols),
+            max(1, grid_area_h // grid.rows)
+        )
+
         # ---- Events ----
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -1124,13 +1172,18 @@ def main() -> None:
                 running = False
                 break
 
+            # Window resize
+            if event.type == pygame.VIDEORESIZE:
+                screen = pygame.display.set_mode(
+                    (max(event.w, PANEL_W + 300), max(event.h, PANEL_H)),
+                    pygame.RESIZABLE
+                )
+
             # Panel events (always active)
             action = panel.handle_event(event)
 
             if action == "algo_gbfs":
                 algo_choice = "gbfs"
-                if state not in ("running", "animating", "moving"):
-                    pass
             elif action == "algo_astar":
                 algo_choice = "astar"
             elif action == "heu_manhattan":
@@ -1141,9 +1194,9 @@ def main() -> None:
                 if state not in ("running", "animating", "moving"):
                     d = get_density()
                     grid.generate_maze(d)
-                    metrics = _fresh_metrics()
-                    message = f"Maze generated ({d}% walls)"
-                    state   = "idle"
+                    metrics  = _fresh_metrics()
+                    message  = f"Maze generated ({d}% walls)"
+                    state    = "idle"
                     algo_gen = None
             elif action == "run":
                 if state in ("idle", "stepping"):
@@ -1154,24 +1207,22 @@ def main() -> None:
                     state = "stepping"
                 elif state == "stepping":
                     step_algorithm()
-                    if state == "stepping":
-                        state = "stepping"
             elif action == "reset":
                 if state not in ("running",):
                     grid.reset_path()
-                    metrics  = _fresh_metrics()
-                    message  = ""
-                    state    = "idle"
-                    algo_gen = None
-                    path     = []
+                    metrics    = _fresh_metrics()
+                    message    = ""
+                    state      = "idle"
+                    algo_gen   = None
+                    path       = []
                     agent_node = None
             elif action == "clear":
                 grid.clear()
-                metrics  = _fresh_metrics()
-                message  = ""
-                state    = "idle"
-                algo_gen = None
-                path     = []
+                metrics    = _fresh_metrics()
+                message    = ""
+                state      = "idle"
+                algo_gen   = None
+                path       = []
                 agent_node = None
             elif action == "toggle_dynamic":
                 dynamic_on = not dynamic_on
@@ -1180,12 +1231,13 @@ def main() -> None:
                 if state not in ("running", "animating", "moving"):
                     nr = max(5, min(50, panel.input_rows.get_int(rows)))
                     nc = max(5, min(50, panel.input_cols.get_int(cols)))
-                    rows       = nr
-                    cols       = nc
-                    grid       = Grid(rows, cols)
+                    rows = nr
+                    cols = nc
+                    gaw, gah = _grid_area()
+                    grid       = Grid(rows, cols, gaw, gah)
                     grid.generate_maze(get_density())
                     metrics    = _fresh_metrics()
-                    message    = f"Grid resized to {rows}×{cols}"
+                    message    = f"Grid resized to {rows}x{cols}"
                     state      = "idle"
                     algo_gen   = None
                     path       = []
@@ -1196,26 +1248,23 @@ def main() -> None:
             if state in ("idle", "stepping"):
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mx, my_pos = event.pos
-                    if mx < GRID_AREA_W:
+                    if mx < grid_area_w:
                         node = grid.get_node_at_pixel(mx, my_pos)
                         if node:
                             mods = pygame.key.get_mods()
                             if event.button == 1:
                                 if mods & pygame.KMOD_SHIFT:
-                                    # Move goal
                                     if node is not grid.start and not node.is_wall():
                                         grid.goal.reset()
                                         grid.goal = node
                                         node.make_goal()
                                 else:
-                                    # Toggle wall
                                     if node is not grid.start and node is not grid.goal:
                                         if node.is_wall():
                                             node.reset()
                                         else:
                                             node.make_wall()
                             elif event.button == 3:
-                                # Move start
                                 if node is not grid.goal and not node.is_wall():
                                     grid.start.reset()
                                     grid.start = node
@@ -1223,7 +1272,7 @@ def main() -> None:
 
                 if event.type == pygame.MOUSEMOTION and pygame.mouse.get_pressed()[0]:
                     mx, my_pos = event.pos
-                    if mx < GRID_AREA_W:
+                    if mx < grid_area_w:
                         node = grid.get_node_at_pixel(mx, my_pos)
                         if node:
                             mods = pygame.key.get_mods()
@@ -1238,46 +1287,37 @@ def main() -> None:
             if now_ms - last_step_time >= delay:
                 last_step_time = now_ms
                 step_algorithm()
-                if state == "animating":
-                    pass  # transition handled inside step_algorithm
 
         elif state == "animating":
-            # Animate path green cell by cell
             if path_anim_idx < len(path):
                 node = path[path_anim_idx]
                 if node is not grid.start and node is not grid.goal:
                     node.make_path()
                 path_anim_idx += 1
             else:
-                # Path fully drawn — start moving agent
                 agent_idx  = 0
                 agent_node = path[0]
                 state      = "moving"
 
         elif state == "moving":
-            # Move agent along path at a visible speed
             delay = max(40, get_speed_delay() * 2)
             if now_ms - last_step_time >= delay:
                 last_step_time = now_ms
 
-                # Dynamic obstacle spawning
                 if dynamic_on and agent_idx < len(path) - 1:
                     remaining = path[agent_idx:]
                     blocked = dyn_mgr.try_spawn(
                         path[agent_idx], remaining, grid.start, grid.goal
                     )
                     if blocked:
-                        # Need to replan
                         dyn_mgr.commit_walls()
                         do_replan(path[agent_idx])
-                        # do_replan sets state = "moving" or "idle"
                         continue
 
                 if agent_idx < len(path) - 1:
                     agent_idx  += 1
                     agent_node = path[agent_idx]
                 else:
-                    # Reached goal
                     agent_node = None
                     state      = "idle"
                     message    = (
@@ -1287,32 +1327,38 @@ def main() -> None:
                     )
 
         # ---- Drawing ----
-        screen.fill(BLACK)
+        win_w = screen.get_width()
+        win_h = screen.get_height()
+        screen.fill((30, 30, 30))
 
-        # Draw grid area background
-        pygame.draw.rect(screen, WHITE, (0, 0, GRID_AREA_W, GRID_AREA_H))
+        # White grid background — exactly the grid's used area
+        used_w = grid.cols * grid.cell_size
+        used_h = grid.rows * grid.cell_size
+        pygame.draw.rect(screen, WHITE, (0, 0, used_w, used_h))
+
         grid.draw(screen)
 
-        # Draw flashing new walls
+        # Flashing dynamic walls
         dyn_mgr.update_flash(screen, grid.cell_size)
 
-        # Draw agent (orange dot) on top
+        # Agent (orange dot)
         if agent_node is not None:
-            cs   = grid.cell_size
-            cx   = agent_node.col * cs + cs // 2
-            cy   = agent_node.row * cs + cs // 2
-            r    = max(4, cs // 2 - 2)
-            pygame.draw.circle(screen, ORANGE, (cx, cy), r)
+            cs = grid.cell_size
+            cx = agent_node.col * cs + cs // 2
+            cy = agent_node.row * cs + cs // 2
+            r  = max(4, cs // 2 - 2)
+            pygame.draw.circle(screen, ORANGE,       (cx, cy), r)
             pygame.draw.circle(screen, (200, 80, 0), (cx, cy), r, width=2)
 
-        # Draw panel
+        # Panel
         panel.handle_hover(pygame.mouse.get_pos())
         panel.draw(screen, metrics, dynamic_on, message)
 
-        # Panel divider
-        pygame.draw.line(screen, DARK_GRAY, (GRID_AREA_W, 0), (GRID_AREA_W, WINDOW_HEIGHT), 2)
+        # Divider line between grid and panel
+        pygame.draw.line(screen, (60, 60, 90),
+                         (grid_area_w, 0), (grid_area_w, win_h), 2)
 
-        # State indicator top-left
+        # State indicator (top-left)
         state_labels = {
             "idle":      ("IDLE",      GRAY),
             "running":   ("RUNNING",   BRIGHT_GREEN),
