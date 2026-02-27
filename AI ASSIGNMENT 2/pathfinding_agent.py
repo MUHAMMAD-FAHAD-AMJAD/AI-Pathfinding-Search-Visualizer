@@ -201,6 +201,90 @@ class Grid:
         return None
 
 
+
+# ============================================================
+# HEURISTICS
+# ============================================================
+def heuristic_manhattan(node, goal):
+    return abs(node.row - goal.row) + abs(node.col - goal.col)
+
+
+def heuristic_euclidean(node, goal):
+    return math.sqrt((node.row - goal.row)**2 + (node.col - goal.col)**2)
+
+
+# ============================================================
+# PATH RECONSTRUCTION
+# ============================================================
+def _reconstruct_path(came_from, start, goal):
+    path, node = [], goal
+    while node in came_from:
+        path.append(node)
+        node = came_from[node]
+    path.append(start)
+    path.reverse()
+    return path
+
+
+# ============================================================
+# A STAR SEARCH
+# ============================================================
+def astar(grid, start, goal, heuristic_fn, move_weight, metrics):
+    """Generator: yields (came_from, path|None) at each step."""
+    counter = 0
+    open_heap = []
+    came_from = {}
+    g_score   = {start: 0.0}
+    in_open   = {start}
+
+    def push(node, f_val):
+        nonlocal counter
+        heapq.heappush(open_heap, (f_val, counter, node))
+        counter += 1
+        in_open.add(node)
+
+    h0 = heuristic_fn(start, goal)
+    start.h = h0
+    start.f = h0
+    push(start, h0)
+
+    while open_heap:
+        _, _, current = heapq.heappop(open_heap)
+        if current not in g_score:
+            yield came_from, None
+            continue
+        current_g = g_score[current]
+
+        if current is goal:
+            path = _reconstruct_path(came_from, start, goal)
+            metrics["path_cost"]     = round(g_score[goal], 4)
+            metrics["nodes_visited"] = len(g_score)
+            yield came_from, path
+            return
+
+        if current is not start and current is not goal:
+            current.make_visited()
+
+        for nb in current.neighbors:
+            tg = current_g + move_weight
+            if tg < g_score.get(nb, float("inf")):
+                came_from[nb]  = current
+                g_score[nb]    = tg
+                h_val          = heuristic_fn(nb, goal)
+                f_val          = tg + h_val
+                nb.h           = h_val
+                nb.f           = f_val
+                metrics["nodes_visited"] += 1
+                push(nb, f_val)
+                if nb is not goal:
+                    nb.make_frontier()
+
+        yield came_from, None
+
+    yield came_from, []
+
+
 if __name__ == "__main__":
-    print("Stage 2 OK")
+    print("Stage 3 OK")
+
 
