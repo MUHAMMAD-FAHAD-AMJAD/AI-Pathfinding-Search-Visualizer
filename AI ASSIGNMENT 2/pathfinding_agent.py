@@ -10,9 +10,6 @@ Heuristics : Manhattan Distance | Euclidean Distance
 GUI        : Pygame  (pip install pygame)
 """
 
-# ============================================================
-# IMPORTS
-# ============================================================
 import pygame
 import sys
 import heapq
@@ -23,127 +20,147 @@ import time
 pygame.init()
 pygame.font.init()
 
-# ============================================================
-# CONSTANTS AND COLORS
-# ============================================================
-INIT_W       = 1300
-INIT_H       = 800
-PANEL_W      = 420
-PANEL_H      = 800
+# ─────────────────────────────────────────────────────────────
+# WINDOW
+# ─────────────────────────────────────────────────────────────
+INIT_W  = 1280
+INIT_H  = 780
+PANEL_W = 340
 
-# --- Color Palette ---
-WHITE        = (255, 255, 255)
-BLACK        = (15,  15,  15 )   # walls — slightly off-black
-DARK_GREEN   = (0,   180, 0  )   # start node — bright and visible
-RED          = (220, 20,  60 )   # goal node
-YELLOW       = (255, 200, 0  )   # frontier
-LIGHT_BLUE   = (70,  160, 220)   # visited
-BRIGHT_GREEN = (0,   220, 80 )   # final path
-ORANGE       = (255, 140, 0  )   # agent
-GRAY         = (140, 140, 140)
-LIGHT_GRAY   = (210, 210, 210)
-DARK_GRAY    = (55,  55,  55 )
-PANEL_BG     = (22,  22,  35 )
-PANEL_BORDER = (80,  80,  120)
-BTN_COLOR    = (52,  52,  85 )
-BTN_HOVER    = (75,  75,  130)
-BTN_ACTIVE   = (50,  120, 220)
-BTN_ON       = (40,  170, 70 )
-BTN_OFF      = (52,  52,  85 )
-TEXT_COLOR   = (220, 220, 220)
-TITLE_COLOR  = (140, 180, 255)
-METRIC_BG    = (12,  12,  22 )
-METRIC_VAL   = (80,  220, 140)
-FLASH_RED    = (255, 40,  40 )
-GRID_LINE    = (200, 200, 200)
-INPUT_BG     = (38,  38,  60 )
-INPUT_BORDER = (100, 100, 160)
-INPUT_ACTIVE = (80,  140, 220)
+# ─────────────────────────────────────────────────────────────
+# MODERN DARK PALETTE
+# ─────────────────────────────────────────────────────────────
+BG_DARK       = (13, 17, 23)
+PANEL_BG      = (22, 27, 34)
+CARD_BG       = (30, 37, 48)
+CARD_BORDER   = (48, 54, 61)
 
-# --- Fonts ---
-FONT_SM   = pygame.font.SysFont("segoeui",  14)
-FONT_MD   = pygame.font.SysFont("segoeui",  16)
-FONT_LG   = pygame.font.SysFont("segoeui",  18, bold=True)
-FONT_XL   = pygame.font.SysFont("segoeui",  22, bold=True)
-FONT_MONO = pygame.font.SysFont("consolas", 15)
+GRID_BG       = (246, 248, 250)
+GRID_LINE_COL = (216, 222, 228)
+WALL_COLOR    = (31, 35, 40)
 
-# --- Speed Delays (ms between algorithm steps) ---
+ACCENT_BLUE   = (31, 111, 235)
+ACCENT_GREEN  = (46, 160, 67)
+ACCENT_RED    = (218, 54, 51)
+ACCENT_AMBER  = (210, 153, 34)
+ACCENT_ORANGE = (240, 136, 62)
+ACCENT_TEAL   = (63, 185, 80)
+ACCENT_CYAN   = (88, 166, 255)
+
+START_COLOR   = (46, 160, 67)
+GOAL_COLOR    = (218, 54, 51)
+VISITED_COLOR = (56, 139, 253)
+FRONTIER_COL  = (210, 153, 34)
+PATH_COLOR    = (63, 185, 80)
+FLASH_RED     = (255, 50, 50)
+
+TEXT_PRIMARY   = (230, 237, 243)
+TEXT_SECONDARY = (139, 148, 158)
+TEXT_MUTED     = (110, 118, 129)
+
+BTN_DEFAULT  = (33, 38, 45)
+BTN_HOVER    = (48, 54, 61)
+BTN_ACTIVE   = (31, 111, 235)
+BTN_GREEN    = (35, 134, 54)
+BTN_GREEN_HV = (46, 160, 67)
+BTN_BORDER   = (48, 54, 61)
+
+INP_BG     = (13, 17, 23)
+INP_BORDER = (48, 54, 61)
+INP_FOCUS  = (88, 166, 255)
+
+METRIC_VAL = (88, 166, 255)
+
+# Aliases used by Node
+WHITE  = GRID_BG
+BLACK  = WALL_COLOR
+ORANGE = ACCENT_ORANGE
+
+# ─────────────────────────────────────────────────────────────
+# FONTS
+# ─────────────────────────────────────────────────────────────
+FONT_XS   = pygame.font.SysFont("segoeui", 11)
+FONT_SM   = pygame.font.SysFont("segoeui", 13)
+FONT_MD   = pygame.font.SysFont("segoeui", 14)
+FONT_LG   = pygame.font.SysFont("segoeui", 15, bold=True)
+FONT_XL   = pygame.font.SysFont("segoeui", 18, bold=True)
+FONT_MONO = pygame.font.SysFont("consolas", 13)
+FONT_ICON = pygame.font.SysFont("segoeui", 11, bold=True)
+
 SPEED_MAP = {"Slow": 120, "Medium": 40, "Fast": 5}
 
-# ============================================================
-# NODE CLASS
-# ============================================================
+
+# ══════════════════════════════════════════════════════════════
+# NODE
+# ══════════════════════════════════════════════════════════════
 class Node:
-    """Represents one cell in the grid."""
+    __slots__ = ("row", "col", "total_rows", "total_cols",
+                 "color", "neighbors", "g", "h", "f", "parent")
 
     def __init__(self, row: int, col: int, total_rows: int, total_cols: int):
         self.row        = row
         self.col        = col
         self.total_rows = total_rows
         self.total_cols = total_cols
-        self.color      = WHITE
+        self.color      = GRID_BG
         self.neighbors: list["Node"] = []
-        self.g          = float("inf")
-        self.h          = 0.0
-        self.f          = 0.0
-        self.parent: "Node | None" = None
+        self.g: float   = float("inf")
+        self.h: float   = 0.0
+        self.f: float   = 0.0
+        self.parent     = None
 
-    # --- Comparison for heapq ---
     def __lt__(self, other: "Node") -> bool:
         return self.f < other.f
 
-    # --- State queries ---
-    def is_wall(self)     -> bool: return self.color == BLACK
-    def is_start(self)    -> bool: return self.color == DARK_GREEN
-    def is_goal(self)     -> bool: return self.color == RED
-    def is_visited(self)  -> bool: return self.color == LIGHT_BLUE
-    def is_frontier(self) -> bool: return self.color == YELLOW
-    def is_path(self)     -> bool: return self.color == BRIGHT_GREEN
+    def is_wall(self)     -> bool: return self.color == WALL_COLOR
+    def is_start(self)    -> bool: return self.color == START_COLOR
+    def is_goal(self)     -> bool: return self.color == GOAL_COLOR
+    def is_visited(self)  -> bool: return self.color == VISITED_COLOR
+    def is_frontier(self) -> bool: return self.color == FRONTIER_COL
+    def is_path(self)     -> bool: return self.color == PATH_COLOR
 
-    # --- State setters ---
-    def make_wall(self)     -> None: self.color = BLACK
-    def make_start(self)    -> None: self.color = DARK_GREEN
-    def make_goal(self)     -> None: self.color = RED
-    def make_visited(self)  -> None: self.color = LIGHT_BLUE
-    def make_frontier(self) -> None: self.color = YELLOW
-    def make_path(self)     -> None: self.color = BRIGHT_GREEN
-    def reset(self)         -> None: self.color = WHITE
+    def make_wall(self)     -> None: self.color = WALL_COLOR
+    def make_start(self)    -> None: self.color = START_COLOR
+    def make_goal(self)     -> None: self.color = GOAL_COLOR
+    def make_visited(self)  -> None: self.color = VISITED_COLOR
+    def make_frontier(self) -> None: self.color = FRONTIER_COL
+    def make_path(self)     -> None: self.color = PATH_COLOR
+    def reset(self)         -> None: self.color = GRID_BG
 
-    # --- Neighbor discovery (4-directional) ---
     def update_neighbors(self, grid: list[list["Node"]]) -> None:
         self.neighbors = []
-        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             r, c = self.row + dr, self.col + dc
             if 0 <= r < self.total_rows and 0 <= c < self.total_cols:
                 if not grid[r][c].is_wall():
                     self.neighbors.append(grid[r][c])
 
-    # --- Drawing ---
-    def draw(self, surface: pygame.Surface, cell_size: int) -> None:
-        x = self.col * cell_size
-        y = self.row * cell_size
-        pygame.draw.rect(surface, self.color, (x, y, cell_size, cell_size))
-        # Draw a filled circle marker for start and goal so they are unmissable
-        if self.color == DARK_GREEN or self.color == RED:
-            cx = x + cell_size // 2
-            cy = y + cell_size // 2
-            r  = max(3, cell_size // 2 - 3)
-            inner = (180, 255, 180) if self.color == DARK_GREEN else (255, 160, 160)
-            pygame.draw.circle(surface, inner,           (cx, cy), r)
-            pygame.draw.circle(surface, self.color,       (cx, cy), r, width=max(2, r//3))
+    def draw(self, surface: pygame.Surface, cs: int) -> None:
+        x, y = self.col * cs, self.row * cs
+        pygame.draw.rect(surface, self.color, (x, y, cs, cs))
+        if self.color == START_COLOR:
+            cx, cy = x + cs // 2, y + cs // 2
+            r = max(3, cs // 3)
+            pts = [(cx - r, cy - r), (cx + r, cy), (cx - r, cy + r)]
+            pygame.draw.polygon(surface, (200, 255, 200), pts)
+            pygame.draw.polygon(surface, START_COLOR, pts, width=max(1, r // 4))
+        elif self.color == GOAL_COLOR:
+            cx, cy = x + cs // 2, y + cs // 2
+            r = max(3, cs // 3)
+            pygame.draw.circle(surface, (255, 200, 200), (cx, cy), r)
+            pygame.draw.circle(surface, GOAL_COLOR, (cx, cy), r, width=max(1, r // 3))
+            pygame.draw.circle(surface, GOAL_COLOR, (cx, cy), max(1, r // 2))
 
 
-# ============================================================
-# GRID CLASS
-# ============================================================
+# ══════════════════════════════════════════════════════════════
+# GRID
+# ══════════════════════════════════════════════════════════════
 class Grid:
-    """Manages the 2-D array of Nodes and all grid-level operations."""
-
     def __init__(self, rows: int, cols: int,
-                 area_w: int = 880, area_h: int = 800):
-        self.rows      = rows
-        self.cols      = cols
-        self.cell_size = min(area_w // cols, area_h // rows)
+                 area_w: int = 880, area_h: int = 780):
+        self.rows = rows
+        self.cols = cols
+        self.cell_size = min(area_w // max(1, cols), area_h // max(1, rows))
         self.nodes: list[list[Node]] = [
             [Node(r, c, rows, cols) for c in range(cols)]
             for r in range(rows)
@@ -153,403 +170,262 @@ class Grid:
         self.start.make_start()
         self.goal.make_goal()
 
-    # --- Path reset (keeps walls) ---
     def reset_path(self) -> None:
         for row in self.nodes:
-            for node in row:
-                if node.is_visited() or node.is_frontier() or node.is_path():
-                    node.reset()
+            for n in row:
+                if n.is_visited() or n.is_frontier() or n.is_path():
+                    n.reset()
         self.start.make_start()
         self.goal.make_goal()
 
-    # --- Full clear ---
     def clear(self) -> None:
         for row in self.nodes:
-            for node in row:
-                node.reset()
-                node.g = float("inf")
-                node.h = 0.0
-                node.f = 0.0
-                node.parent = None
-                node.neighbors = []
+            for n in row:
+                n.reset(); n.g = float("inf")
+                n.h = 0.0; n.f = 0.0
+                n.parent = None; n.neighbors = []
         self.start.make_start()
         self.goal.make_goal()
 
-    # --- Random maze generation ---
     def generate_maze(self, density: int) -> None:
-        """Place walls randomly, verify path exists; retry up to 50 times."""
-        for attempt in range(50):
+        for _ in range(50):
             self.clear()
             for r in range(self.rows):
                 for c in range(self.cols):
-                    node = self.nodes[r][c]
-                    if node is self.start or node is self.goal:
+                    nd = self.nodes[r][c]
+                    if nd is self.start or nd is self.goal:
                         continue
                     if random.random() < density / 100:
-                        node.make_wall()
+                        nd.make_wall()
             if self._path_exists():
                 return
-        # If all attempts fail, clear walls so at least the grid is valid
         self.clear()
 
     def _path_exists(self) -> bool:
-        """BFS to check connectivity of start → goal."""
-        visited = set()
-        queue   = [self.start]
-        visited.add(self.start)
+        visited = {self.start}
+        queue = [self.start]
         while queue:
-            current = queue.pop(0)
-            if current is self.goal:
+            cur = queue.pop(0)
+            if cur is self.goal:
                 return True
-            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                r, c = current.row + dr, current.col + dc
+            for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                r, c = cur.row + dr, cur.col + dc
                 if 0 <= r < self.rows and 0 <= c < self.cols:
-                    neighbor = self.nodes[r][c]
-                    if neighbor not in visited and not neighbor.is_wall():
-                        visited.add(neighbor)
-                        queue.append(neighbor)
+                    nb = self.nodes[r][c]
+                    if nb not in visited and not nb.is_wall():
+                        visited.add(nb); queue.append(nb)
         return False
 
-    # --- Update all neighbors ---
     def update_all_neighbors(self) -> None:
         for row in self.nodes:
-            for node in row:
-                node.update_neighbors(self.nodes)
+            for n in row:
+                n.update_neighbors(self.nodes)
 
-    # --- Draw grid ---
     def draw(self, surface: pygame.Surface) -> None:
         cs = self.cell_size
         for row in self.nodes:
-            for node in row:
-                node.draw(surface, cs)
-
-        # Grid lines
-        total_w = self.cols * cs
-        total_h = self.rows * cs
+            for n in row:
+                n.draw(surface, cs)
+        tw, th = self.cols * cs, self.rows * cs
         for r in range(self.rows + 1):
-            pygame.draw.line(surface, GRID_LINE, (0, r * cs), (total_w, r * cs))
+            pygame.draw.line(surface, GRID_LINE_COL, (0, r * cs), (tw, r * cs))
         for c in range(self.cols + 1):
-            pygame.draw.line(surface, GRID_LINE, (c * cs, 0), (c * cs, total_h))
-
-        # Guarantee start/goal are always visible on top of grid lines
-        self.start.make_start()
-        self.goal.make_goal()
+            pygame.draw.line(surface, GRID_LINE_COL, (c * cs, 0), (c * cs, th))
         self.start.draw(surface, cs)
         self.goal.draw(surface, cs)
 
-    # --- Convert pixel → node ---
-    def get_node_at_pixel(self, x: int, y: int) -> "Node | None":
+    def get_node_at_pixel(self, x: int, y: int):
         cs = self.cell_size
-        col = x // cs
-        row = y // cs
+        if cs <= 0:
+            return None
+        col, row = x // cs, y // cs
         if 0 <= row < self.rows and 0 <= col < self.cols:
             return self.nodes[row][col]
         return None
 
 
-# ============================================================
+# ══════════════════════════════════════════════════════════════
 # HEURISTICS
-# ============================================================
-def heuristic_manhattan(node: Node, goal: Node) -> float:
-    return abs(node.row - goal.row) + abs(node.col - goal.col)
+# ══════════════════════════════════════════════════════════════
+def heuristic_manhattan(a: Node, b: Node) -> float:
+    return abs(a.row - b.row) + abs(a.col - b.col)
+
+def heuristic_euclidean(a: Node, b: Node) -> float:
+    return math.sqrt((a.row - b.row) ** 2 + (a.col - b.col) ** 2)
 
 
-def heuristic_euclidean(node: Node, goal: Node) -> float:
-    return math.sqrt((node.row - goal.row) ** 2 + (node.col - goal.col) ** 2)
-
-
-# ============================================================
-# GREEDY BEST FIRST SEARCH
-# ============================================================
-def gbfs(
-    grid:         Grid,
-    start:        Node,
-    goal:         Node,
-    heuristic_fn,
-    move_weight:  float,
-    metrics:      dict,
-):
-    """
-    Generator – yields (came_from, path | None) at each expansion step.
-    Yields (came_from, path)  when goal is found.
-    Yields (came_from, [])    when open list exhausted (no path).
-    Yields (came_from, None)  for intermediate steps.
-    """
-    counter    = 0
-    open_heap: list = []
+# ══════════════════════════════════════════════════════════════
+# GBFS
+# ══════════════════════════════════════════════════════════════
+def gbfs(grid, start, goal, heuristic_fn, move_weight, metrics):
+    counter = 0
+    heap: list = []
     came_from: dict[Node, Node] = {}
-    visited:   set[Node]        = set()
-    in_frontier: set[Node]      = set()
+    visited:  set[Node] = set()
+    in_front: set[Node] = set()
 
-    def push(node: Node) -> None:
+    def push(nd):
         nonlocal counter
-        h_val   = heuristic_fn(node, goal)
-        node.h  = h_val
-        node.f  = h_val
-        heapq.heappush(open_heap, (h_val, counter, node))
-        counter += 1
-        in_frontier.add(node)
+        h = heuristic_fn(nd, goal); nd.h = h; nd.f = h
+        heapq.heappush(heap, (h, counter, nd)); counter += 1
+        in_front.add(nd)
 
     push(start)
-
-    while open_heap:
-        _, _, current = heapq.heappop(open_heap)
-        in_frontier.discard(current)
-
-        if current in visited:
-            yield came_from, None
-            continue
-
-        visited.add(current)
+    while heap:
+        _, _, cur = heapq.heappop(heap)
+        in_front.discard(cur)
+        if cur in visited:
+            yield came_from, None; continue
+        visited.add(cur)
         metrics["nodes_visited"] += 1
-
-        if current is goal:
-            path = _reconstruct_path(came_from, start, goal)
+        if cur is goal:
+            path = _reconstruct(came_from, start, goal)
             metrics["path_cost"] = (len(path) - 1) * move_weight
-            yield came_from, path
-            return
-
-        if current is not start and current is not goal:
-            current.make_visited()
-
-        for neighbor in current.neighbors:
-            if neighbor not in visited and neighbor not in in_frontier:
-                came_from[neighbor] = current
-                push(neighbor)
-                if neighbor is not goal:
-                    neighbor.make_frontier()
-
+            yield came_from, path; return
+        if cur is not start and cur is not goal:
+            cur.make_visited()
+        for nb in cur.neighbors:
+            if nb not in visited and nb not in in_front:
+                came_from[nb] = cur; push(nb)
+                if nb is not goal: nb.make_frontier()
         yield came_from, None
+    yield came_from, []
 
-    yield came_from, []   # no path
 
-
-# ============================================================
-# A STAR SEARCH
-# ============================================================
-def astar(
-    grid:         Grid,
-    start:        Node,
-    goal:         Node,
-    heuristic_fn,
-    move_weight:  float,
-    metrics:      dict,
-):
-    """
-    Generator – yields (came_from, path | None) at each expansion step.
-    """
-    counter   = 0
-    open_heap: list = []
+# ══════════════════════════════════════════════════════════════
+# A*
+# ══════════════════════════════════════════════════════════════
+def astar(grid, start, goal, heuristic_fn, move_weight, metrics):
+    counter = 0
+    heap: list = []
     came_from: dict[Node, Node] = {}
-    g_score:   dict[Node, float] = {start: 0.0}
-    in_open:   set[Node]         = set()
+    g_score:  dict[Node, float] = {start: 0.0}
+    in_open:  set[Node] = set()
 
-    def push(node: Node, f_val: float) -> None:
+    def push(nd, fv):
         nonlocal counter
-        heapq.heappush(open_heap, (f_val, counter, node))
-        counter  += 1
-        in_open.add(node)
+        heapq.heappush(heap, (fv, counter, nd)); counter += 1
+        in_open.add(nd)
 
-    h0 = heuristic_fn(start, goal)
-    start.h = h0
-    start.f = h0
+    h0 = heuristic_fn(start, goal); start.h = h0; start.f = h0
     push(start, h0)
-
-    while open_heap:
-        _, _, current = heapq.heappop(open_heap)
-
-        if current not in g_score:
-            yield came_from, None
-            continue
-
-        current_g = g_score[current]
-
-        if current is goal:
-            path = _reconstruct_path(came_from, start, goal)
-            metrics["path_cost"]     = round(g_score[goal], 4)
+    while heap:
+        _, _, cur = heapq.heappop(heap)
+        if cur not in g_score:
+            yield came_from, None; continue
+        cg = g_score[cur]
+        if cur is goal:
+            path = _reconstruct(came_from, start, goal)
+            metrics["path_cost"] = round(g_score[goal], 4)
             metrics["nodes_visited"] = len(g_score)
-            yield came_from, path
-            return
-
-        if current is not start and current is not goal:
-            current.make_visited()
-
-        for neighbor in current.neighbors:
-            tentative_g = current_g + move_weight
-            if tentative_g < g_score.get(neighbor, float("inf")):
-                came_from[neighbor]  = current
-                g_score[neighbor]    = tentative_g
-                h_val                = heuristic_fn(neighbor, goal)
-                f_val                = tentative_g + h_val
-                neighbor.h           = h_val
-                neighbor.f           = f_val
+            yield came_from, path; return
+        if cur is not start and cur is not goal:
+            cur.make_visited()
+        for nb in cur.neighbors:
+            tg = cg + move_weight
+            if tg < g_score.get(nb, float("inf")):
+                came_from[nb] = cur; g_score[nb] = tg
+                hv = heuristic_fn(nb, goal); fv = tg + hv
+                nb.h = hv; nb.f = fv
                 metrics["nodes_visited"] += 1
-                push(neighbor, f_val)
-                if neighbor is not goal:
-                    neighbor.make_frontier()
-
+                push(nb, fv)
+                if nb is not goal: nb.make_frontier()
         yield came_from, None
+    yield came_from, []
 
-    yield came_from, []   # no path
 
-
-# ============================================================
-# PATH RECONSTRUCTION (shared utility)
-# ============================================================
-def _reconstruct_path(
-    came_from: dict[Node, Node],
-    start:     Node,
-    goal:      Node,
-) -> list[Node]:
-    path   = []
-    node   = goal
-    while node in came_from:
-        path.append(node)
-        node = came_from[node]
-    path.append(start)
-    path.reverse()
+def _reconstruct(came_from, start, goal):
+    path, nd = [], goal
+    while nd in came_from:
+        path.append(nd); nd = came_from[nd]
+    path.append(start); path.reverse()
     return path
 
 
-# ============================================================
+# ══════════════════════════════════════════════════════════════
 # DYNAMIC OBSTACLES
-# ============================================================
+# ══════════════════════════════════════════════════════════════
 class DynamicObstacleManager:
-    """
-    Periodically spawns walls while the agent is moving.
-    Checks if a new wall collides with the remaining path
-    and signals a replan if needed.
-    """
-    SPAWN_PROBABILITY = 0.03   # per-frame chance
-    FLASH_DURATION_MS = 300    # ms the new wall flashes red/orange
+    SPAWN_PROB = 0.03
+    FLASH_MS   = 300
 
     def __init__(self, grid: Grid):
-        self.grid        = grid
-        self.flash_nodes: list[tuple[Node, float, tuple]] = []
-        # Each entry: (node, spawn_time_ms, flash_color)
+        self.grid  = grid
+        self.flash: list[tuple] = []
 
-    def try_spawn(
-        self,
-        current_node:    Node,
-        remaining_path:  list[Node],
-        start:           Node,
-        goal:            Node,
-    ) -> bool:
-        """
-        Attempt to spawn a wall. Returns True if replanning is needed.
-        """
-        if random.random() > self.SPAWN_PROBABILITY:
+    def try_spawn(self, cur_node, remaining, start, goal) -> bool:
+        if random.random() > self.SPAWN_PROB:
             return False
-
-        # Collect candidates: empty cells not on protected positions
-        protected = {current_node, start, goal}
-        candidates = [
-            n for row in self.grid.nodes for n in row
-            if not n.is_wall()
-            and not n.is_start()
-            and not n.is_goal()
-            and n not in protected
-        ]
-        if not candidates:
+        prot = {cur_node, start, goal}
+        cands = [n for row in self.grid.nodes for n in row
+                 if not n.is_wall() and not n.is_start()
+                 and not n.is_goal() and n not in prot]
+        if not cands:
             return False
+        wall = random.choice(cands)
+        fc = random.choice([FLASH_RED, ACCENT_ORANGE])
+        self.flash.append((wall, time.time() * 1000, fc))
+        wall.color = fc
+        return wall in remaining
 
-        new_wall = random.choice(candidates)
+    def commit_walls(self):
+        for nd, _, _ in self.flash:
+            nd.make_wall()
+        self.flash.clear()
 
-        # Flash effect
-        flash_color = random.choice([FLASH_RED, ORANGE])
-        self.flash_nodes.append((new_wall, time.time() * 1000, flash_color))
-        new_wall.color = flash_color   # temporary
-
-        # Check if this wall is on the remaining path
-        on_path = new_wall in remaining_path
-
-        # After flash it will become BLACK (handled in update_flash)
-        return on_path
-
-    def commit_walls(self) -> None:
-        """Turn all flash nodes into permanent walls."""
-        for node, _, _ in self.flash_nodes:
-            node.make_wall()
-        self.flash_nodes.clear()
-
-    def update_flash(self, surface: pygame.Surface, cs: int) -> None:
-        """Draw flashing nodes and commit them when the flash expires."""
+    def update_flash(self, surf, cs):
         now = time.time() * 1000
         expired = []
-        for entry in self.flash_nodes:
-            node, spawn_time, color = entry
-            elapsed = now - spawn_time
-            if elapsed >= self.FLASH_DURATION_MS:
-                node.make_wall()
-                expired.append(entry)
+        for entry in self.flash:
+            nd, t0, _ = entry
+            el = now - t0
+            if el >= self.FLASH_MS:
+                nd.make_wall(); expired.append(entry)
             else:
-                # Alternate flash color
-                flash = FLASH_RED if int(elapsed / 80) % 2 == 0 else ORANGE
-                pygame.draw.rect(
-                    surface, flash,
-                    (node.col * cs, node.row * cs, cs, cs)
-                )
+                fc = FLASH_RED if int(el / 80) % 2 == 0 else ACCENT_ORANGE
+                pygame.draw.rect(surf, fc, (nd.col * cs, nd.row * cs, cs, cs))
         for e in expired:
-            self.flash_nodes.remove(e)
+            self.flash.remove(e)
 
 
-# ============================================================
-# UI PANEL AND BUTTONS
-# ============================================================
+# ══════════════════════════════════════════════════════════════
+# UI COMPONENTS
+# ══════════════════════════════════════════════════════════════
+
+def _rrect(surf, color, rect, r=6, w=0):
+    pygame.draw.rect(surf, color, rect, border_radius=r, width=w)
+
+
 class Button:
-    """A clickable Pygame button with hover and active-state rendering."""
-
-    def __init__(
-        self,
-        rect:         tuple[int, int, int, int],
-        label:        str,
-        color:        tuple = BTN_COLOR,
-        active_color: tuple = BTN_ACTIVE,
-        font:         pygame.font.Font = None,
-    ):
+    def __init__(self, rect, label, color=BTN_DEFAULT, active_color=BTN_ACTIVE,
+                 font=None, text_color=TEXT_PRIMARY):
         self.rect         = pygame.Rect(rect)
         self.label        = label
         self.color        = color
         self.active_color = active_color
         self.font         = font or FONT_MD
+        self.text_color   = text_color
         self.is_active    = False
         self.hovered      = False
 
-    def draw(self, surface: pygame.Surface) -> None:
-        if self.is_active:
-            col = self.active_color
-        elif self.hovered:
-            col = BTN_HOVER
-        else:
-            col = self.color
+    def draw(self, surf):
+        c = self.active_color if self.is_active else (BTN_HOVER if self.hovered else self.color)
+        _rrect(surf, c, self.rect, 6)
+        _rrect(surf, BTN_BORDER, self.rect, 6, 1)
+        t = self.font.render(self.label, True, self.text_color)
+        surf.blit(t, t.get_rect(center=self.rect.center))
 
-        pygame.draw.rect(surface, col, self.rect, border_radius=8)
-        pygame.draw.rect(surface, PANEL_BORDER, self.rect, width=1, border_radius=8)
+    def update_hover(self, pos):
+        self.hovered = self.rect.collidepoint(pos)
 
-        txt = self.font.render(self.label, True, TEXT_COLOR)
-        tr  = txt.get_rect(center=self.rect.center)
-        surface.blit(txt, tr)
-
-    def update_hover(self, mouse_pos: tuple[int, int]) -> None:
-        self.hovered = self.rect.collidepoint(mouse_pos)
-
-    def is_clicked(self, event: pygame.event.Event) -> bool:
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            return self.rect.collidepoint(event.pos)
-        return False
+    def is_clicked(self, ev):
+        return (ev.type == pygame.MOUSEBUTTONDOWN
+                and ev.button == 1
+                and self.rect.collidepoint(ev.pos))
 
 
 class TextInput:
-    """A simple single-line text input box."""
-
-    def __init__(
-        self,
-        rect:      tuple[int, int, int, int],
-        initial:   str = "",
-        label:     str = "",
-        max_chars: int = 6,
-        numeric:   bool = True,
-    ):
+    def __init__(self, rect, initial="", label="", max_chars=6, numeric=True):
         self.rect      = pygame.Rect(rect)
         self.text      = initial
         self.label     = label
@@ -557,18 +433,15 @@ class TextInput:
         self.numeric   = numeric
         self.active    = False
 
-    def handle_event(self, event: pygame.event.Event) -> bool:
-        """Returns True when Enter is pressed (value confirmed)."""
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            self.active = self.rect.collidepoint(event.pos)
-
-        if event.type == pygame.KEYDOWN and self.active:
-            if event.key == pygame.K_BACKSPACE:
-                self.text = self.text[:-1]
-                return False
-            if event.key == pygame.K_RETURN:
+    def handle_event(self, ev):
+        if ev.type == pygame.MOUSEBUTTONDOWN:
+            self.active = self.rect.collidepoint(ev.pos)
+        if ev.type == pygame.KEYDOWN and self.active:
+            if ev.key == pygame.K_BACKSPACE:
+                self.text = self.text[:-1]; return False
+            if ev.key == pygame.K_RETURN:
                 return True
-            ch = event.unicode
+            ch = ev.unicode
             if ch and len(self.text) < self.max_chars:
                 if self.numeric:
                     if ch.isdigit() or (ch == "." and "." not in self.text):
@@ -577,798 +450,494 @@ class TextInput:
                     self.text += ch
         return False
 
-    def get_float(self, default: float = 1.0) -> float:
-        try:
-            return float(self.text)
-        except ValueError:
-            return default
+    def get_float(self, d=1.0):
+        try: return float(self.text)
+        except ValueError: return d
 
-    def get_int(self, default: int = 0) -> int:
-        try:
-            return int(float(self.text))
-        except ValueError:
-            return default
+    def get_int(self, d=0):
+        try: return int(float(self.text))
+        except ValueError: return d
 
-    def draw(self, surface: pygame.Surface) -> None:
-        border_color = INPUT_ACTIVE if self.active else INPUT_BORDER
-        pygame.draw.rect(surface, INPUT_BG,   self.rect, border_radius=4)
-        pygame.draw.rect(surface, border_color, self.rect, width=1, border_radius=4)
-
-        # Label above
+    def draw(self, surf):
+        bc = INP_FOCUS if self.active else INP_BORDER
+        _rrect(surf, INP_BG, self.rect, 4)
+        _rrect(surf, bc, self.rect, 4, 1)
         if self.label:
-            lbl = FONT_SM.render(self.label, True, GRAY)
-            surface.blit(lbl, (self.rect.x, self.rect.y - 18))
-
-        # Value text
-        txt = FONT_MONO.render(self.text + ("|" if self.active else ""), True, TEXT_COLOR)
-        surface.blit(txt, (self.rect.x + 6, self.rect.y + 5))
+            surf.blit(FONT_XS.render(self.label, True, TEXT_MUTED),
+                      (self.rect.x, self.rect.y - 15))
+        t = FONT_MONO.render(self.text + ("|" if self.active else ""), True, TEXT_PRIMARY)
+        surf.blit(t, (self.rect.x + 6, self.rect.y + 4))
 
 
-class SliderButton:
-    """Three-state slider displayed as three clickable segments."""
-
-    def __init__(self, x: int, y: int, w: int, h: int, options: list[str], default: int = 1):
+class SegmentedControl:
+    def __init__(self, x, y, w, h, options, default=0):
         self.options  = options
         self.selected = default
-        seg_w = w // len(options)
-        self.rects = [
-            pygame.Rect(x + i * seg_w, y, seg_w, h)
-            for i in range(len(options))
-        ]
+        sw = w // len(options)
+        self.rects = [pygame.Rect(x + i * sw, y, sw, h) for i in range(len(options))]
 
-    def handle_event(self, event: pygame.event.Event) -> bool:
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            for i, rect in enumerate(self.rects):
-                if rect.collidepoint(event.pos):
-                    self.selected = i
-                    return True
+    def handle_event(self, ev):
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            for i, r in enumerate(self.rects):
+                if r.collidepoint(ev.pos):
+                    self.selected = i; return True
         return False
 
-    def update_hover(self, pos: tuple[int, int]) -> None:
-        pass  # hover handled in draw
+    def update_hover(self, pos): pass
 
-    def draw(self, surface: pygame.Surface, label: str = "") -> None:
-        if label:
-            lbl = FONT_SM.render(label, True, GRAY)
-            surface.blit(lbl, (self.rects[0].x, self.rects[0].y - 18))
-
-        mx, my = pygame.mouse.get_pos()
-        for i, rect in enumerate(self.rects):
-            hovered = rect.collidepoint(mx, my)
-            if i == self.selected:
-                col = BTN_ACTIVE
-            elif hovered:
-                col = BTN_HOVER
-            else:
-                col = BTN_COLOR
-            pygame.draw.rect(surface, col, rect, border_radius=4)
-            pygame.draw.rect(surface, PANEL_BORDER, rect, width=1, border_radius=4)
-            txt = FONT_SM.render(self.options[i], True, TEXT_COLOR)
-            surface.blit(txt, txt.get_rect(center=rect.center))
+    def draw(self, surf):
+        for i, r in enumerate(self.rects):
+            c = BTN_ACTIVE if i == self.selected else BTN_DEFAULT
+            _rrect(surf, c, r, 4)
+            _rrect(surf, BTN_BORDER, r, 4, 1)
+            t = FONT_SM.render(self.options[i], True, TEXT_PRIMARY)
+            surf.blit(t, t.get_rect(center=r.center))
 
     @property
-    def value(self) -> str:
+    def value(self):
         return self.options[self.selected]
 
 
+# ══════════════════════════════════════════════════════════════
+# PANEL
+# ══════════════════════════════════════════════════════════════
 class Panel:
-    """The right-side control panel (400 × 700)."""
+    def __init__(self, x: int, panel_h: int):
+        self.x = x
+        self.h = panel_h
+        self.surf = pygame.Surface((PANEL_W, max(780, panel_h)))
+        self._build()
 
-    def __init__(self, x: int):
-        self.x   = x
-        self.surf = pygame.Surface((PANEL_W, PANEL_H))
+    def _build(self):
+        px = 16
+        cw = PANEL_W - px * 2
+        y  = 16
 
-        px = 20   # left padding inside panel
-        py = 14   # current y cursor
+        self.title_y = y; y += 30
 
-        # --- Title ---
-        self.title_y = py;  py += 30
-
-        # --- Algo buttons ---
-        self.algo_label_y = py;  py += 22
-        bw = (PANEL_W - px * 2 - 8) // 2
-        self.btn_gbfs  = Button((px,          py, bw, 32), "GBFS")
-        self.btn_astar = Button((px + bw + 8, py, bw, 32), "A* Search")
+        # Card 1: Algorithm
+        self.c1_y = y
+        iy = y + 28
+        bw = (cw - 6) // 2
+        self.btn_gbfs  = Button((px, iy, bw, 28), "GBFS")
+        self.btn_astar = Button((px + bw + 6, iy, bw, 28), "A*")
         self.btn_astar.is_active = True
-        py += 40
+        iy += 36; self.c1_h = iy - self.c1_y + 4; y = iy + 8
 
-        # --- Heuristic buttons ---
-        self.heu_label_y = py;  py += 22
-        bw2 = (PANEL_W - px * 2 - 8) // 2
-        self.btn_manhattan  = Button((px,           py, bw2, 32), "Manhattan")
-        self.btn_euclidean  = Button((px + bw2 + 8, py, bw2, 32), "Euclidean")
+        # Card 2: Heuristic
+        self.c2_y = y
+        iy = y + 28
+        self.btn_manhattan = Button((px, iy, bw, 28), "Manhattan")
+        self.btn_euclidean = Button((px + bw + 6, iy, bw, 28), "Euclidean")
         self.btn_manhattan.is_active = True
-        py += 40
+        iy += 36; self.c2_h = iy - self.c2_y + 4; y = iy + 8
 
-        # --- Move Weight + Density inputs (side by side) ---
-        iw = (PANEL_W - px * 2 - 10) // 2
-        self.input_weight  = TextInput((px,           py + 20, iw, 28), "1", "Move Weight")
-        self.input_density = TextInput((px + iw + 10, py + 20, iw, 28), "30", "Density %")
-        py += 58
+        # Card 3: Parameters
+        self.c3_y = y
+        iy = y + 10
+        iw = (cw - 8) // 2
+        self.inp_weight  = TextInput((px, iy + 16, iw, 24), "1",  "Weight")
+        self.inp_density = TextInput((px + iw + 8, iy + 16, iw, 24), "30", "Density %")
+        iy += 50
+        self.speed_lbl_y = iy
+        self.speed_ctrl = SegmentedControl(px, iy + 16, cw, 26,
+                                           ["Slow", "Medium", "Fast"], default=1)
+        iy += 50; self.c3_h = iy - self.c3_y + 4; y = iy + 8
 
-        # --- Speed slider ---
-        self.speed_label_y = py;  py += 22
-        self.speed_slider  = SliderButton(px, py, PANEL_W - px * 2, 30,
-                                          ["Slow", "Medium", "Fast"], default=1)
-        py += 42
+        # Card 4: Actions
+        self.c4_y = y
+        iy = y + 10
+        bw2 = (cw - 6) // 2
+        self.btn_run      = Button((px, iy, bw2, 30), "▶  Run",
+                                   color=BTN_GREEN, active_color=BTN_GREEN_HV)
+        self.btn_step     = Button((px + bw2 + 6, iy, bw2, 30), "⏭  Step")
+        iy += 36
+        self.btn_generate = Button((px, iy, bw2, 30), "⟳  Generate")
+        self.btn_reset    = Button((px + bw2 + 6, iy, bw2, 30), "↺  Reset")
+        iy += 36
+        self.btn_clear    = Button((px, iy, bw2, 30), "✕  Clear")
+        self.btn_dynamic  = Button((px + bw2 + 6, iy, bw2, 30), "Dynamic: Off")
+        iy += 38; self.c4_h = iy - self.c4_y + 4; y = iy + 8
 
-        # --- Action buttons ---
-        bw3 = (PANEL_W - px * 2 - 8) // 2
-        self.btn_generate = Button((px,           py, bw3, 34), "GENERATE")
-        self.btn_run      = Button((px + bw3 + 8, py, bw3, 34), "RUN",
-                                   active_color=BTN_ON)
-        py += 42
+        # Card 5: Grid Size
+        self.c5_y = y
+        iy = y + 10
+        gw = (cw - 8) // 3
+        self.inp_rows = TextInput((px, iy + 16, gw, 24), "20", "Rows")
+        self.inp_cols = TextInput((px + gw + 4, iy + 16, gw, 24), "20", "Cols")
+        self.btn_resize = Button((px + 2 * (gw + 4), iy + 14, gw, 28), "Apply")
+        iy += 50; self.c5_h = iy - self.c5_y + 4; y = iy + 8
 
-        self.btn_step     = Button((px,           py, bw3, 34), "STEP")
-        self.btn_reset    = Button((px + bw3 + 8, py, bw3, 34), "RESET")
-        py += 42
+        # Card 6: Metrics
+        self.c6_y = y
+        self.c6_h = 120
+        y += self.c6_h + 8
 
-        self.btn_clear    = Button((px, py, bw3, 34), "CLEAR")
-        self.btn_dynamic  = Button((px + bw3 + 8, py, bw3, 34), "DYNAMIC: OFF",
-                                   active_color=BTN_ON)
-        py += 50
+        # Card 7: Legend
+        self.c7_y = y
+        self.c7_h = 90
+        self.status_y = y + self.c7_h + 10
 
-        # --- Separator ---
-        self.sep_y = py;  py += 20
-
-        # --- Grid size input ---
-        self.grid_label_y = py;  py += 20
-        gw = (PANEL_W - px * 2 - 10) // 2
-        self.input_rows = TextInput((px,          py, gw, 28), "20", "Rows")
-        self.input_cols = TextInput((px + gw + 10, py, gw, 28), "20", "Cols")
-        py += 52
-
-        self.btn_resize = Button((px, py, PANEL_W - px * 2, 30), "APPLY GRID SIZE")
-        py += 44
-
-        # --- Separator ---
-        self.sep2_y = py;  py += 18
-
-        # --- Metrics ---
-        self.metrics_y = py
-
-    def draw(
-        self,
-        surface:    pygame.Surface,
-        metrics:    dict,
-        dynamic_on: bool,
-        message:    str,
-    ) -> None:
+    def draw(self, surface, metrics, dynamic_on, message, state_name):
         self.surf.fill(PANEL_BG)
-        px = 15
-        SEP_COLOR = (60, 60, 95)
+        px = 16
+        cw = PANEL_W - px * 2
 
-        def sep(y: int) -> None:
-            pygame.draw.line(self.surf, SEP_COLOR,
-                             (px, y), (PANEL_W - px, y))
+        def card(cy, ch, label=""):
+            _rrect(self.surf, CARD_BG, (px - 6, cy, cw + 12, ch), 8)
+            _rrect(self.surf, CARD_BORDER, (px - 6, cy, cw + 12, ch), 8, 1)
+            if label:
+                self.surf.blit(FONT_XS.render(label, True, TEXT_MUTED), (px, cy + 8))
 
-        # ── Title ─────────────────────────────────────────────────
-        t1 = FONT_XL.render("Dynamic Pathfinding Agent", True, TITLE_COLOR)
-        t2 = FONT_SM.render("Muhammad Fahad Amjad  |  24F-0005", True, GRAY)
-        self.surf.blit(t1, (px, self.title_y))
-        self.surf.blit(t2, (px, self.subtitle_y))
-        sep(self.sep0_y)
+        # Title
+        self.surf.blit(FONT_XL.render("Pathfinding Agent", True, ACCENT_CYAN),
+                       (px, self.title_y))
 
-        # ── Algorithm ─────────────────────────────────────────────
-        lbl_a = FONT_MD.render("Algorithm:", True, GRAY)
-        self.surf.blit(lbl_a, (px, self.algo_label_y))
-        self.btn_gbfs.draw(self.surf)
-        self.btn_astar.draw(self.surf)
-        sep(self.sep1_y)
+        card(self.c1_y, self.c1_h, "ALGORITHM")
+        self.btn_gbfs.draw(self.surf); self.btn_astar.draw(self.surf)
 
-        # ── Heuristic ─────────────────────────────────────────────
-        lbl_h = FONT_MD.render("Heuristic:", True, GRAY)
-        self.surf.blit(lbl_h, (px, self.heu_label_y))
-        self.btn_manhattan.draw(self.surf)
-        self.btn_euclidean.draw(self.surf)
-        sep(self.sep2_y)
+        card(self.c2_y, self.c2_h, "HEURISTIC")
+        self.btn_manhattan.draw(self.surf); self.btn_euclidean.draw(self.surf)
 
-        # ── Inputs ────────────────────────────────────────────────
-        self.input_weight.draw(self.surf)
-        self.input_density.draw(self.surf)
-        sep(self.sep3_y)
+        card(self.c3_y, self.c3_h, "PARAMETERS")
+        self.inp_weight.draw(self.surf); self.inp_density.draw(self.surf)
+        self.surf.blit(FONT_XS.render("Speed", True, TEXT_MUTED), (px, self.speed_lbl_y))
+        self.speed_ctrl.draw(self.surf)
 
-        # ── Speed ─────────────────────────────────────────────────
-        lbl_s = FONT_MD.render("Speed:", True, GRAY)
-        self.surf.blit(lbl_s, (px, self.speed_label_y))
-        self.speed_slider.draw(self.surf, "")
-        sep(self.sep4_y)
-
-        # ── Action buttons ────────────────────────────────────────
-        self.btn_dynamic.label     = f"DYNAMIC: {'ON' if dynamic_on else 'OFF'}"
+        card(self.c4_y, self.c4_h)
+        self.btn_dynamic.label = f"Dynamic: {'On' if dynamic_on else 'Off'}"
         self.btn_dynamic.is_active = dynamic_on
-        for btn in [self.btn_generate, self.btn_run,
-                    self.btn_step, self.btn_reset,
-                    self.btn_clear, self.btn_dynamic]:
-            btn.draw(self.surf)
-        sep(self.sep5_y)
+        for b in (self.btn_run, self.btn_step, self.btn_generate,
+                  self.btn_reset, self.btn_clear, self.btn_dynamic):
+            b.draw(self.surf)
 
-        # ── Grid size ─────────────────────────────────────────────
-        lbl_g = FONT_MD.render("Grid Size (rows x cols):", True, GRAY)
-        self.surf.blit(lbl_g, (px, self.grid_label_y))
-        self.input_rows.draw(self.surf)
-        self.input_cols.draw(self.surf)
+        card(self.c5_y, self.c5_h, "GRID SIZE")
+        self.inp_rows.draw(self.surf); self.inp_cols.draw(self.surf)
         self.btn_resize.draw(self.surf)
-        sep(self.sep6_y)
 
-        # ── Metrics Dashboard ─────────────────────────────────────
-        mbox_x = px - 4
-        mbox_w = PANEL_W - px * 2 + 8
-        mbox_h = self.status_y - self.metrics_box_y - 4
-        pygame.draw.rect(self.surf, METRIC_BG,
-                         (mbox_x, self.metrics_box_y, mbox_w, mbox_h),
-                         border_radius=8)
-        pygame.draw.rect(self.surf, (60, 60, 100),
-                         (mbox_x, self.metrics_box_y, mbox_w, mbox_h),
-                         width=1, border_radius=8)
+        card(self.c6_y, self.c6_h, "METRICS")
+        my = self.c6_y + 26
+        for lbl, key in [("Nodes Visited", "nodes_visited"),
+                         ("Path Cost", "path_cost"),
+                         ("Time", "time_ms")]:
+            self.surf.blit(FONT_SM.render(lbl, True, TEXT_SECONDARY), (px, my))
+            v = str(metrics[key]) + (" ms" if key == "time_ms" else "")
+            vs = FONT_MONO.render(v, True, METRIC_VAL)
+            self.surf.blit(vs, (PANEL_W - px - vs.get_width() - 6, my))
+            my += 22
 
-        my = self.metrics_box_y + 10
-        dash_t = FONT_LG.render("Metrics Dashboard", True, TITLE_COLOR)
-        self.surf.blit(dash_t, (px, my))
-        my += 28
+        badge_c = {
+            "idle": TEXT_MUTED, "running": ACCENT_GREEN,
+            "stepping": ACCENT_AMBER, "animating": ACCENT_ORANGE,
+            "moving": ACCENT_ORANGE,
+        }
+        bc = badge_c.get(state_name, TEXT_MUTED)
+        self.surf.blit(FONT_ICON.render(f"● {state_name.upper()}", True, bc),
+                       (px, self.c6_y + self.c6_h - 20))
 
-        for label, key, unit in [
-            ("Nodes Visited", "nodes_visited", ""),
-            ("Path Cost",     "path_cost",     ""),
-            ("Time (ms)",     "time_ms",       "ms"),
-        ]:
-            row_lbl = FONT_MD.render(f"{label}:", True, GRAY)
-            row_val = FONT_MONO.render(
-                f"{metrics[key]}{unit}" if unit else str(metrics[key]),
-                True, METRIC_VAL
-            )
-            self.surf.blit(row_lbl, (px, my))
-            self.surf.blit(row_val, (PANEL_W - px - row_val.get_width() - 4, my))
-            my += 26
+        # Card 7: Color Legend
+        card(self.c7_y, self.c7_h, "LEGEND")
+        ly = self.c7_y + 24
+        legend = [
+            (START_COLOR,   "Start"),
+            (GOAL_COLOR,    "Goal"),
+            (FRONTIER_COL,  "Frontier"),
+            (VISITED_COLOR, "Visited"),
+            (PATH_COLOR,    "Path"),
+            (WALL_COLOR,    "Wall"),
+        ]
+        cols_per_row = 3
+        col_w = cw // cols_per_row
+        for idx, (clr, txt) in enumerate(legend):
+            cx = px + (idx % cols_per_row) * col_w
+            cy = ly + (idx // cols_per_row) * 20
+            pygame.draw.rect(self.surf, clr, (cx, cy + 2, 10, 10), border_radius=2)
+            self.surf.blit(FONT_XS.render(txt, True, TEXT_SECONDARY), (cx + 14, cy))
 
-        # ── Status message ────────────────────────────────────────
         if message:
-            color = (255, 100, 100) if "No path" in message else (100, 220, 100)
-            # Truncate if too long
-            msg_surf = FONT_MD.render(message[:52], True, color)
-            self.surf.blit(msg_surf, (px, self.status_y))
+            mc = ACCENT_RED if "No path" in message else ACCENT_GREEN
+            self.surf.blit(FONT_SM.render(message[:60], True, mc), (px, self.status_y))
 
-        # Blit panel onto main surface
         surface.blit(self.surf, (self.x, 0))
 
-    def handle_hover(self, abs_mouse: tuple[int, int]) -> None:
-        rel = (abs_mouse[0] - self.x, abs_mouse[1])
-        for btn in [
-            self.btn_gbfs, self.btn_astar,
-            self.btn_manhattan, self.btn_euclidean,
-            self.btn_generate, self.btn_run,
-            self.btn_step, self.btn_reset,
-            self.btn_clear, self.btn_dynamic,
-            self.btn_resize,
-        ]:
-            btn.update_hover(rel)
-        self.speed_slider.update_hover(rel)
+    def handle_hover(self, abs_pos):
+        rel = (abs_pos[0] - self.x, abs_pos[1])
+        for b in (self.btn_gbfs, self.btn_astar,
+                  self.btn_manhattan, self.btn_euclidean,
+                  self.btn_run, self.btn_step,
+                  self.btn_generate, self.btn_reset,
+                  self.btn_clear, self.btn_dynamic,
+                  self.btn_resize):
+            b.update_hover(rel)
 
-    def handle_event(self, event: pygame.event.Event) -> str | None:
-        """
-        Returns a string action name, or None.
-        Adjusts event coordinates to be relative to the panel surface.
-        """
-        if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP,
-                          pygame.KEYDOWN, pygame.KEYUP):
-            # Translate mouse events to panel-local coords
-            local_event = event
-            if hasattr(event, "pos"):
-                lx = event.pos[0] - self.x
-                ly = event.pos[1]
-                # Create a fake event with adjusted position
-                local_event = pygame.event.Event(
-                    event.type,
-                    {**event.__dict__, "pos": (lx, ly)},
-                )
+    def handle_event(self, event):
+        if event.type not in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP,
+                               pygame.KEYDOWN, pygame.KEYUP):
+            return None
+        le = event
+        if hasattr(event, "pos"):
+            le = pygame.event.Event(
+                event.type,
+                {**event.__dict__, "pos": (event.pos[0] - self.x, event.pos[1])})
+        for inp in (self.inp_weight, self.inp_density,
+                    self.inp_rows, self.inp_cols):
+            inp.handle_event(le)
+        self.speed_ctrl.handle_event(le)
 
-            # Text inputs
-            for inp in [self.input_weight, self.input_density,
-                        self.input_rows, self.input_cols]:
-                inp.handle_event(local_event)
-
-            # Speed slider
-            self.speed_slider.handle_event(local_event)
-
-            # Buttons
-            if self.btn_gbfs.is_clicked(local_event):
-                self.btn_gbfs.is_active  = True
-                self.btn_astar.is_active = False
-                return "algo_gbfs"
-            if self.btn_astar.is_clicked(local_event):
-                self.btn_gbfs.is_active  = False
-                self.btn_astar.is_active = True
-                return "algo_astar"
-            if self.btn_manhattan.is_clicked(local_event):
-                self.btn_manhattan.is_active = True
-                self.btn_euclidean.is_active = False
-                return "heu_manhattan"
-            if self.btn_euclidean.is_clicked(local_event):
-                self.btn_manhattan.is_active = False
-                self.btn_euclidean.is_active = True
-                return "heu_euclidean"
-            if self.btn_generate.is_clicked(local_event):
-                return "generate"
-            if self.btn_run.is_clicked(local_event):
-                return "run"
-            if self.btn_step.is_clicked(local_event):
-                return "step"
-            if self.btn_reset.is_clicked(local_event):
-                return "reset"
-            if self.btn_clear.is_clicked(local_event):
-                return "clear"
-            if self.btn_dynamic.is_clicked(local_event):
-                return "toggle_dynamic"
-            if self.btn_resize.is_clicked(local_event):
-                return "resize"
-
+        if self.btn_gbfs.is_clicked(le):
+            self.btn_gbfs.is_active = True; self.btn_astar.is_active = False
+            return "algo_gbfs"
+        if self.btn_astar.is_clicked(le):
+            self.btn_gbfs.is_active = False; self.btn_astar.is_active = True
+            return "algo_astar"
+        if self.btn_manhattan.is_clicked(le):
+            self.btn_manhattan.is_active = True; self.btn_euclidean.is_active = False
+            return "heu_manhattan"
+        if self.btn_euclidean.is_clicked(le):
+            self.btn_manhattan.is_active = False; self.btn_euclidean.is_active = True
+            return "heu_euclidean"
+        if self.btn_generate.is_clicked(le): return "generate"
+        if self.btn_run.is_clicked(le):      return "run"
+        if self.btn_step.is_clicked(le):     return "step"
+        if self.btn_reset.is_clicked(le):    return "reset"
+        if self.btn_clear.is_clicked(le):    return "clear"
+        if self.btn_dynamic.is_clicked(le):  return "toggle_dynamic"
+        if self.btn_resize.is_clicked(le):   return "resize"
         return None
 
 
-# ============================================================
-# STARTUP DIALOG
-# ============================================================
-def startup_dialog(screen: pygame.Surface) -> tuple[int, int]:
-    """Simple startup dialog to set grid dimensions."""
-    clock  = pygame.time.Clock()
-    font_t = pygame.font.SysFont("segoeui", 30, bold=True)
-    font_s = pygame.font.SysFont("segoeui", 16)
-
-    cw = screen.get_width()
-
-    inp_rows = TextInput((cw // 2 - 100, 290, 85, 36), "20", "Rows", numeric=True)
-    inp_cols = TextInput((cw // 2 + 20,  290, 85, 36), "20", "Cols", numeric=True)
-    btn_start = pygame.Rect(cw // 2 - 110, 355, 220, 48)
-
-    while True:
-        screen.fill((18, 18, 30))
-        cw = screen.get_width()
-
-        t = font_t.render("Dynamic Pathfinding Agent", True, TITLE_COLOR)
-        screen.blit(t, t.get_rect(center=(cw // 2, 160)))
-
-        sub = font_s.render(
-            "AI 2002 – Assignment 2  |  Muhammad Fahad Amjad  |  24F-0005",
-            True, GRAY)
-        screen.blit(sub, sub.get_rect(center=(cw // 2, 200)))
-
-        inst = font_s.render(
-            "Set grid dimensions then click START  (default 20x20)",
-            True, LIGHT_GRAY)
-        screen.blit(inst, inst.get_rect(center=(cw // 2, 250)))
-
-        inp_rows.draw(screen)
-        inp_cols.draw(screen)
-
-        mx, my = pygame.mouse.get_pos()
-        hov = btn_start.collidepoint(mx, my)
-        pygame.draw.rect(screen, BTN_ACTIVE if hov else BTN_COLOR, btn_start, border_radius=10)
-        pygame.draw.rect(screen, PANEL_BORDER, btn_start, width=1, border_radius=10)
-        st = font_t.render("START", True, WHITE)
-        screen.blit(st, st.get_rect(center=btn_start.center))
-
-        pygame.display.flip()
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                pygame.quit()
-                sys.exit()
-
-            inp_rows.handle_event(event)
-            inp_cols.handle_event(event)
-
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if btn_start.collidepoint(event.pos):
-                    r = max(5, min(50, inp_rows.get_int(20)))
-                    c = max(5, min(50, inp_cols.get_int(20)))
-                    return r, c
-
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                r = max(5, min(50, inp_rows.get_int(20)))
-                c = max(5, min(50, inp_cols.get_int(20)))
-                return r, c
-
-        clock.tick(60)
-
-    return 20, 20
-
-
-# ============================================================
-# METRICS DASHBOARD (state container)
-# ============================================================
-def _fresh_metrics() -> dict:
+# ══════════════════════════════════════════════════════════════
+# HELPERS
+# ══════════════════════════════════════════════════════════════
+def _fresh_metrics():
     return {"nodes_visited": 0, "path_cost": 0, "time_ms": 0}
 
 
-# ============================================================
-# MAIN LOOP
-# ============================================================
-def main() -> None:
+# ══════════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════════
+def main():
     screen = pygame.display.set_mode((INIT_W, INIT_H), pygame.RESIZABLE)
-    pygame.display.set_caption(
-        "Dynamic Pathfinding Agent | Muhammad Fahad Amjad | 24F-0005"
-    )
+    pygame.display.set_caption("Dynamic Pathfinding Agent")
     clock = pygame.time.Clock()
 
-    # --- Startup ---
-    rows, cols = startup_dialog(screen)
+    rows, cols = 20, 20
 
-    # --- Compute dynamic grid area ---
-    def _grid_area() -> tuple[int, int]:
-        """Return (grid_area_w, grid_area_h) based on current screen size."""
-        return screen.get_width() - PANEL_W, screen.get_height()
+    def _grid_area():
+        return max(200, screen.get_width() - PANEL_W), screen.get_height()
 
-    grid_area_w, grid_area_h = _grid_area()
-
-    # --- Initial state ---
-    grid = Grid(rows, cols, grid_area_w, grid_area_h)
+    gaw, gah = _grid_area()
+    grid = Grid(rows, cols, gaw, gah)
     grid.generate_maze(30)
 
-    panel = Panel(grid_area_w)
+    panel = Panel(gaw, gah)
 
-    algo_choice  = "astar"      # "astar" | "gbfs"
+    algo_choice  = "astar"
     heuristic_fn = heuristic_manhattan
     move_weight  = 1.0
     dynamic_on   = False
+    metrics      = _fresh_metrics()
+    message      = ""
 
-    metrics = _fresh_metrics()
-    message = ""
-
-    # Algorithm generator state
-    algo_gen         = None
-    came_from: dict  = {}
+    algo_gen  = None
+    came_from = {}
     path: list[Node] = []
 
-    # Animation state
-    path_anim_idx       = 0
-    agent_idx           = 0
-    agent_node: Node | None = None
+    path_anim_idx = 0
+    agent_idx     = 0
+    agent_node    = None
+    last_step     = 0.0
+    start_time    = 0.0
 
-    # Timing
-    last_step_time = 0
-    start_time_ms  = 0
-
-    # Dynamic obstacle manager
     dyn_mgr = DynamicObstacleManager(grid)
-
-    # States: idle | running | stepping | animating | moving
-    state = "idle"
+    state   = "idle"
 
     def get_heuristic():
-        if panel.btn_euclidean.is_active:
-            return heuristic_euclidean
-        return heuristic_manhattan
+        return heuristic_euclidean if panel.btn_euclidean.is_active else heuristic_manhattan
+    def get_weight():
+        return max(0.1, panel.inp_weight.get_float(1.0))
+    def get_density():
+        return max(10, min(60, panel.inp_density.get_int(30)))
+    def get_delay():
+        return SPEED_MAP[panel.speed_ctrl.value]
 
-    def get_move_weight() -> float:
-        return max(0.1, panel.input_weight.get_float(1.0))
-
-    def get_density() -> int:
-        return max(10, min(60, panel.input_density.get_int(30)))
-
-    def get_speed_delay() -> int:
-        return SPEED_MAP[panel.speed_slider.value]
-
-    def start_algorithm() -> None:
-        nonlocal algo_gen, came_from, path, state
-        nonlocal metrics, start_time_ms, path_anim_idx, agent_idx, agent_node
-        nonlocal heuristic_fn, move_weight, message
-
-        grid.reset_path()
-        grid.update_all_neighbors()
-        grid.start.make_start()  # ensure start/goal survive reset
-        grid.goal.make_goal()
-
-        heuristic_fn = get_heuristic()
-        move_weight  = get_move_weight()
-        metrics      = _fresh_metrics()
-        message      = ""
-        path         = []
-        came_from    = {}
-        path_anim_idx = 0
-        agent_idx     = 0
-        agent_node    = None
-
-        start_time_ms = time.time() * 1000
-
+    def start_algo():
+        nonlocal algo_gen, came_from, path, state, metrics, start_time
+        nonlocal path_anim_idx, agent_idx, agent_node, heuristic_fn, move_weight, message
+        grid.reset_path(); grid.update_all_neighbors()
+        grid.start.make_start(); grid.goal.make_goal()
+        heuristic_fn = get_heuristic(); move_weight = get_weight()
+        metrics = _fresh_metrics(); message = ""
+        path = []; came_from = {}
+        path_anim_idx = 0; agent_idx = 0; agent_node = None
+        start_time = time.time() * 1000
         fn = astar if algo_choice == "astar" else gbfs
-        algo_gen = fn(
-            grid, grid.start, grid.goal,
-            heuristic_fn, move_weight, metrics
-        )
+        algo_gen = fn(grid, grid.start, grid.goal, heuristic_fn, move_weight, metrics)
         state = "running"
 
-    def step_algorithm() -> None:
-        """Advance the generator one step; handle completion."""
-        nonlocal algo_gen, came_from, path, state
-        nonlocal metrics, message, path_anim_idx, agent_idx
-
-        if algo_gen is None:
-            return
+    def step_algo():
+        nonlocal algo_gen, came_from, path, state, metrics, message, path_anim_idx, agent_idx
+        if algo_gen is None: return
         try:
-            cf, result = next(algo_gen)
-            came_from = cf
-            if result is not None:
-                # Algorithm finished
-                metrics["time_ms"] = round(time.time() * 1000 - start_time_ms, 1)
-                if len(result) == 0:
-                    message  = "No path found!"
-                    state    = "idle"
-                    algo_gen = None
+            cf, res = next(algo_gen); came_from = cf
+            if res is not None:
+                metrics["time_ms"] = round(time.time() * 1000 - start_time, 1)
+                if not res:
+                    message = "No path found!"; state = "idle"; algo_gen = None
                 else:
-                    path          = result
-                    path_anim_idx = 0
-                    state         = "animating"
-                    algo_gen      = None
+                    path = res; path_anim_idx = 0; state = "animating"; algo_gen = None
         except StopIteration:
-            state    = "idle"
-            algo_gen = None
+            state = "idle"; algo_gen = None
 
-    def do_replan(from_node: Node) -> None:
-        """Replan from the agent's current position."""
-        nonlocal algo_gen, came_from, path, state
-        nonlocal metrics, start_time_ms, path_anim_idx, agent_idx, message
-
-        grid.reset_path()
-        grid.update_all_neighbors()
-
-        start_time_ms = time.time() * 1000
-        metrics       = _fresh_metrics()
-        message       = "Replanning…"
-
+    def do_replan(from_node):
+        nonlocal algo_gen, came_from, path, state, metrics, start_time
+        nonlocal path_anim_idx, agent_idx, message
+        grid.reset_path(); grid.update_all_neighbors()
+        start_time = time.time() * 1000
+        metrics = _fresh_metrics(); message = "Replanning…"
         fn = astar if algo_choice == "astar" else gbfs
-        algo_gen = fn(
-            grid, from_node, grid.goal,
-            heuristic_fn, move_weight, metrics
-        )
-        # Run to completion (no step animation during replan for efficiency)
-        final_path: list[Node] = []
-        final_cf:   dict        = {}
-        for cf, result in algo_gen:
-            final_cf = cf
-            if result is not None:
-                final_path = result
-                break
-
-        metrics["time_ms"] = round(time.time() * 1000 - start_time_ms, 1)
+        algo_gen = fn(grid, from_node, grid.goal, heuristic_fn, move_weight, metrics)
+        fp, fc = [], {}
+        for cf, res in algo_gen:
+            fc = cf
+            if res is not None: fp = res; break
+        metrics["time_ms"] = round(time.time() * 1000 - start_time, 1)
         algo_gen = None
-
-        if not final_path:
-            message = "No path found after replan!"
-            state   = "idle"
+        if not fp:
+            message = "No path after replan!"; state = "idle"
         else:
-            came_from     = final_cf
-            path          = final_path
-            agent_idx     = 0
-            path_anim_idx = 0
-            # Skip path animation on replan — go straight to agent moving
+            came_from = fc; path = fp; agent_idx = 0; path_anim_idx = 0
             for n in path:
-                if n is not grid.start and n is not grid.goal:
-                    n.make_path()
-            state   = "moving"
-            message = "Replanned!"
+                if n is not grid.start and n is not grid.goal: n.make_path()
+            state = "moving"; message = "Replanned!"
 
-    # ---- Main event/render loop ----
+    # ── main loop ──
     running = True
     while running:
-        now_ms = time.time() * 1000
+        now = time.time() * 1000
+        gaw, gah = _grid_area()
+        panel.x = gaw
+        grid.cell_size = min(max(1, gaw // max(1, grid.cols)),
+                             max(1, gah // max(1, grid.rows)))
 
-        # Keep panel.x and grid cell_size synced with window size
-        grid_area_w, grid_area_h = _grid_area()
-        panel.x = grid_area_w
-        grid.cell_size = min(
-            max(1, grid_area_w // grid.cols),
-            max(1, grid_area_h // grid.rows)
-        )
-
-        # ---- Events ----
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
-                break
+                running = False; break
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                running = False
-                break
-
-            # Window resize
+                running = False; break
             if event.type == pygame.VIDEORESIZE:
                 screen = pygame.display.set_mode(
-                    (max(event.w, PANEL_W + 300), max(event.h, PANEL_H)),
-                    pygame.RESIZABLE
-                )
+                    (max(event.w, PANEL_W + 300), max(event.h, 600)),
+                    pygame.RESIZABLE)
 
-            # Panel events (always active)
             action = panel.handle_event(event)
-
-            if action == "algo_gbfs":
-                algo_choice = "gbfs"
-            elif action == "algo_astar":
-                algo_choice = "astar"
-            elif action == "heu_manhattan":
-                heuristic_fn = heuristic_manhattan
-            elif action == "heu_euclidean":
-                heuristic_fn = heuristic_euclidean
+            if action == "algo_gbfs":      algo_choice = "gbfs"
+            elif action == "algo_astar":   algo_choice = "astar"
+            elif action == "heu_manhattan": heuristic_fn = heuristic_manhattan
+            elif action == "heu_euclidean": heuristic_fn = heuristic_euclidean
             elif action == "generate":
                 if state not in ("running", "animating", "moving"):
-                    d = get_density()
-                    grid.generate_maze(d)
-                    metrics  = _fresh_metrics()
-                    message  = f"Maze generated ({d}% walls)"
-                    state    = "idle"
-                    algo_gen = None
+                    d = get_density(); grid.generate_maze(d)
+                    metrics = _fresh_metrics()
+                    message = f"Maze generated ({d}% density)"
+                    state = "idle"; algo_gen = None
             elif action == "run":
-                if state in ("idle", "stepping"):
-                    start_algorithm()
+                if state in ("idle", "stepping"): start_algo()
             elif action == "step":
-                if state == "idle":
-                    start_algorithm()
-                    state = "stepping"
-                elif state == "stepping":
-                    step_algorithm()
+                if state == "idle": start_algo(); state = "stepping"
+                elif state == "stepping": step_algo()
             elif action == "reset":
-                if state not in ("running",):
-                    grid.reset_path()
-                    metrics    = _fresh_metrics()
-                    message    = ""
-                    state      = "idle"
-                    algo_gen   = None
-                    path       = []
-                    agent_node = None
+                if state != "running":
+                    grid.reset_path(); metrics = _fresh_metrics(); message = ""
+                    state = "idle"; algo_gen = None; path = []; agent_node = None
             elif action == "clear":
-                grid.clear()
-                metrics    = _fresh_metrics()
-                message    = ""
-                state      = "idle"
-                algo_gen   = None
-                path       = []
-                agent_node = None
+                grid.clear(); metrics = _fresh_metrics(); message = ""
+                state = "idle"; algo_gen = None; path = []; agent_node = None
             elif action == "toggle_dynamic":
-                dynamic_on = not dynamic_on
-                dyn_mgr    = DynamicObstacleManager(grid)
+                dynamic_on = not dynamic_on; dyn_mgr = DynamicObstacleManager(grid)
             elif action == "resize":
                 if state not in ("running", "animating", "moving"):
-                    nr = max(5, min(50, panel.input_rows.get_int(rows)))
-                    nc = max(5, min(50, panel.input_cols.get_int(cols)))
-                    rows = nr
-                    cols = nc
-                    gaw, gah = _grid_area()
-                    grid       = Grid(rows, cols, gaw, gah)
+                    nr = max(5, min(50, panel.inp_rows.get_int(rows)))
+                    nc = max(5, min(50, panel.inp_cols.get_int(cols)))
+                    rows, cols = nr, nc
+                    grid = Grid(rows, cols, *_grid_area())
                     grid.generate_maze(get_density())
-                    metrics    = _fresh_metrics()
-                    message    = f"Grid resized to {rows}x{cols}"
-                    state      = "idle"
-                    algo_gen   = None
-                    path       = []
-                    agent_node = None
-                    dyn_mgr    = DynamicObstacleManager(grid)
+                    metrics = _fresh_metrics()
+                    message = f"Grid: {rows}×{cols}"
+                    state = "idle"; algo_gen = None; path = []; agent_node = None
+                    dyn_mgr = DynamicObstacleManager(grid)
 
-            # ---- Grid mouse interaction (only when idle/stepping) ----
             if state in ("idle", "stepping"):
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    mx, my_pos = event.pos
-                    if mx < grid_area_w:
-                        node = grid.get_node_at_pixel(mx, my_pos)
-                        if node:
+                    mx, my = event.pos
+                    if mx < gaw:
+                        nd = grid.get_node_at_pixel(mx, my)
+                        if nd:
                             mods = pygame.key.get_mods()
                             if event.button == 1:
                                 if mods & pygame.KMOD_SHIFT:
-                                    if node is not grid.start and not node.is_wall():
-                                        grid.goal.reset()
-                                        grid.goal = node
-                                        node.make_goal()
+                                    if nd is not grid.start and not nd.is_wall():
+                                        grid.goal.reset(); grid.goal = nd; nd.make_goal()
                                 else:
-                                    if node is not grid.start and node is not grid.goal:
-                                        if node.is_wall():
-                                            node.reset()
-                                        else:
-                                            node.make_wall()
+                                    if nd is not grid.start and nd is not grid.goal:
+                                        nd.reset() if nd.is_wall() else nd.make_wall()
                             elif event.button == 3:
-                                if node is not grid.goal and not node.is_wall():
-                                    grid.start.reset()
-                                    grid.start = node
-                                    node.make_start()
-
+                                if nd is not grid.goal and not nd.is_wall():
+                                    grid.start.reset(); grid.start = nd; nd.make_start()
                 if event.type == pygame.MOUSEMOTION and pygame.mouse.get_pressed()[0]:
-                    mx, my_pos = event.pos
-                    if mx < grid_area_w:
-                        node = grid.get_node_at_pixel(mx, my_pos)
-                        if node:
-                            mods = pygame.key.get_mods()
-                            if not (mods & pygame.KMOD_SHIFT):
-                                if node is not grid.start and node is not grid.goal:
-                                    if not node.is_wall():
-                                        node.make_wall()
+                    mx, my = event.pos
+                    if mx < gaw:
+                        nd = grid.get_node_at_pixel(mx, my)
+                        if nd and not (pygame.key.get_mods() & pygame.KMOD_SHIFT):
+                            if nd is not grid.start and nd is not grid.goal and not nd.is_wall():
+                                nd.make_wall()
 
-        # ---- State machine updates ----
+        # State machine
         if state == "running":
-            delay = get_speed_delay()
-            if now_ms - last_step_time >= delay:
-                last_step_time = now_ms
-                step_algorithm()
-
+            if now - last_step >= get_delay():
+                last_step = now; step_algo()
         elif state == "animating":
             if path_anim_idx < len(path):
-                node = path[path_anim_idx]
-                if node is not grid.start and node is not grid.goal:
-                    node.make_path()
+                n = path[path_anim_idx]
+                if n is not grid.start and n is not grid.goal: n.make_path()
                 path_anim_idx += 1
             else:
-                agent_idx  = 0
-                agent_node = path[0]
-                state      = "moving"
-
+                agent_idx = 0; agent_node = path[0]; state = "moving"
         elif state == "moving":
-            delay = max(40, get_speed_delay() * 2)
-            if now_ms - last_step_time >= delay:
-                last_step_time = now_ms
-
+            d = max(40, get_delay() * 2)
+            if now - last_step >= d:
+                last_step = now
                 if dynamic_on and agent_idx < len(path) - 1:
-                    remaining = path[agent_idx:]
-                    blocked = dyn_mgr.try_spawn(
-                        path[agent_idx], remaining, grid.start, grid.goal
-                    )
-                    if blocked:
-                        dyn_mgr.commit_walls()
-                        do_replan(path[agent_idx])
-                        continue
-
+                    if dyn_mgr.try_spawn(path[agent_idx], path[agent_idx:],
+                                          grid.start, grid.goal):
+                        dyn_mgr.commit_walls(); do_replan(path[agent_idx]); continue
                 if agent_idx < len(path) - 1:
-                    agent_idx  += 1
-                    agent_node = path[agent_idx]
+                    agent_idx += 1; agent_node = path[agent_idx]
                 else:
-                    agent_node = None
-                    state      = "idle"
-                    message    = (
-                        f"Done! Cost: {metrics['path_cost']}  "
-                        f"Nodes: {metrics['nodes_visited']}  "
-                        f"Time: {metrics['time_ms']}ms"
-                    )
+                    agent_node = None; state = "idle"
+                    message = (f"Done — Cost: {metrics['path_cost']}  "
+                               f"Visited: {metrics['nodes_visited']}  "
+                               f"Time: {metrics['time_ms']}ms")
 
-        # ---- Drawing ----
-        win_w = screen.get_width()
-        win_h = screen.get_height()
-        screen.fill((30, 30, 30))
-
-        # White grid background — exactly the grid's used area
-        used_w = grid.cols * grid.cell_size
-        used_h = grid.rows * grid.cell_size
-        pygame.draw.rect(screen, WHITE, (0, 0, used_w, used_h))
-
+        # ── Render ──
+        screen.fill(BG_DARK)
+        uw = grid.cols * grid.cell_size
+        uh = grid.rows * grid.cell_size
+        pygame.draw.rect(screen, GRID_BG, (0, 0, uw, uh))
         grid.draw(screen)
-
-        # Flashing dynamic walls
         dyn_mgr.update_flash(screen, grid.cell_size)
 
-        # Agent (orange dot)
         if agent_node is not None:
             cs = grid.cell_size
             cx = agent_node.col * cs + cs // 2
             cy = agent_node.row * cs + cs // 2
             r  = max(4, cs // 2 - 2)
-            pygame.draw.circle(screen, ORANGE,       (cx, cy), r)
+            pygame.draw.circle(screen, ACCENT_ORANGE, (cx, cy), r)
             pygame.draw.circle(screen, (200, 80, 0), (cx, cy), r, width=2)
 
-        # Panel
         panel.handle_hover(pygame.mouse.get_pos())
-        panel.draw(screen, metrics, dynamic_on, message)
-
-        # Divider line between grid and panel
-        pygame.draw.line(screen, (60, 60, 90),
-                         (grid_area_w, 0), (grid_area_w, win_h), 2)
-
-        # State indicator (top-left)
-        state_labels = {
-            "idle":      ("IDLE",      GRAY),
-            "running":   ("RUNNING",   BRIGHT_GREEN),
-            "stepping":  ("STEPPING",  YELLOW),
-            "animating": ("ANIMATING", ORANGE),
-            "moving":    ("MOVING",    ORANGE),
-        }
-        slabel, scol = state_labels.get(state, ("IDLE", GRAY))
-        st_surf = FONT_LG.render(f"● {slabel}", True, scol)
-        screen.blit(st_surf, (8, 6))
+        panel.draw(screen, metrics, dynamic_on, message, state)
+        pygame.draw.line(screen, CARD_BORDER, (gaw, 0), (gaw, screen.get_height()), 1)
 
         pygame.display.flip()
         clock.tick(60)
